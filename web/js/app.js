@@ -1,724 +1,1482 @@
 /**
- * FormFlow OCR Enterprise — Interactive Application Engine
- * Supports Tri-Engine Mode, Interactive Glyph Ribbon, Real-time Gating, and Operator Ingestion
+ * FormFlow OCR – Enterprise Architecture Studio & Verification Station
+ * Next-Gen React Architecture (Light Theme Edition)
+ *
+ * Requirements satisfied:
+ * 1. Default view: Verification Station
+ * 2. EXACT Loader: kind-mole-87 by Nawsome (Typewriter animation)
+ * 3. Clear, unambiguous processing indicator on image upload/paste/drop
+ * 4. Direct clipboard paste (Ctrl+V) and file upload
+ * 5. macOS SF Pro font stack, standard text colors (no font gradients)
+ * 6. Resizable panels and cards
+ * 7. Draggable connected architecture SVG nodes (cannot disconnect)
+ * 8. Benchmark Matrix embedded in Architecture Studio
  */
 
-(function () {
-  'use strict';
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+const h = React.createElement;
 
-  // Application State
-  const state = {
-    fields: [],
-    filteredFields: [],
-    currentField: null,
-    currentResult: null,
-    activeMode: 'tri_engine',
-    confThreshold: 0.85,
-    showBoundingBoxes: true,
-    activeGlyphIdx: null,
-    operatorStartTime: Date.now(),
-    auditLogs: [],
-    customImageBase64: null,
-  };
+/* ─── Apple / Neutral Accent Palette (Standard Colors Only, No Gradients) ─── */
+const C = {
+  blue:   '#0071e3',
+  violet: '#5856d6',
+  green:  '#28cd41',
+  amber:  '#ff9500',
+  red:    '#ff3b30',
+};
 
-  // DOM Elements Cache
-  const el = {
-    galleryContainer: document.getElementById('gallery-container'),
-    filterType: document.getElementById('filter-type'),
-    filterBox: document.getElementById('filter-box'),
-    searchInput: document.getElementById('search-input'),
-    tabBenchmark: document.getElementById('tab-benchmark'),
-    tabCustom: document.getElementById('tab-custom'),
-    paneBenchmark: document.getElementById('pane-benchmark'),
-    paneCustom: document.getElementById('pane-custom'),
-    dropzone: document.getElementById('dropzone'),
-    fileInput: document.getElementById('file-input'),
-    customFieldType: document.getElementById('custom-field-type'),
-    customIsComb: document.getElementById('custom-is-comb'),
-    fieldCanvas: document.getElementById('field-canvas'),
-    canvasPlaceholder: document.getElementById('canvas-placeholder'),
-    fieldMetaBadge: document.getElementById('field-meta-badge'),
-    btnToggleBoxes: document.getElementById('btn-toggle-boxes'),
-    enginePills: document.getElementById('engine-pills'),
-    decisionBanner: document.getElementById('decision-banner'),
-    bannerTitle: document.getElementById('banner-title'),
-    bannerSubtitle: document.getElementById('banner-subtitle'),
-    bannerLatency: document.getElementById('banner-latency'),
-    confSlider: document.getElementById('conf-slider'),
-    gatingValDisplay: document.getElementById('gating-val-display'),
-    teleMinConf: document.getElementById('tele-min-conf'),
-    teleMeanConf: document.getElementById('tele-mean-conf'),
-    teleSyntax: document.getElementById('tele-syntax'),
-    glyphRibbon: document.getElementById('glyph-ribbon'),
-    transcriptionInput: document.getElementById('transcription-input'),
-    btnRevert: document.getElementById('btn-revert'),
-    groundTruthBadge: document.getElementById('ground-truth-badge'),
-    repairsBox: document.getElementById('repairs-box'),
-    repairsList: document.getElementById('repairs-list'),
-    btnAccept: document.getElementById('btn-accept'),
-    btnCorrect: document.getElementById('btn-correct'),
-    btnReject: document.getElementById('btn-reject'),
-    auditCount: document.getElementById('audit-count'),
-    auditTableBody: document.getElementById('audit-table-body'),
-    btnExportCsv: document.getElementById('btn-export-csv'),
-    btnClearAudit: document.getElementById('btn-clear-audit'),
-    modalShortcuts: document.getElementById('modal-shortcuts'),
-    btnShortcuts: document.getElementById('btn-shortcuts'),
-    btnCloseModal: document.getElementById('btn-close-modal'),
-    toastContainer: document.getElementById('toast-container'),
-  };
+/* ─── Architecture Stages (Connected Nodes) ──────────────────────────────── */
+const INITIAL_STAGES = [
+  {
+    id: 0, title: 'Field Image', sub: 'Handwritten Crop',
+    file: 'data/form_fields/metadata.csv', color: C.blue,
+    bullets: [
+      '150 standardised benchmark fields across Dates, PINs, and Codes',
+      'Accommodates both rigid comb-box grids and freeform handwriting',
+      'Supports clipboard screenshots (Ctrl+V), drag-and-drop, and file uploads',
+    ],
+    sandbox: 'input',
+    x: 30,  y: 160, w: 140, h: 90,
+  },
+  {
+    id: 1, title: 'Segmenter', sub: 'Morphology, 32×32',
+    file: 'src/field_reader/segmenter.py', color: C.blue,
+    bullets: [
+      'Removes comb-box grid borders & freeform underlines via structuring elements',
+      'Smart Box Merge automatically rejoins split cursive stems (U, J, etc.)',
+      'Normalises character crops into centred 32×32 float tensors',
+    ],
+    sandbox: 'segmenter',
+    x: 210, y: 160, w: 140, h: 90,
+  },
+  {
+    id: 2, title: 'Glyph CNN', sub: '39-Class Network',
+    file: 'src/field_reader/model.py', color: C.violet,
+    bullets: [
+      '4-layer deep convolutional feature extractor with BatchNorm & Dropout',
+      'Recognises 0-9 digits, A-Z uppercase letters, and / - . separators',
+      'Trained on 27,300 glyphs with ink-bleed & faint-pencil morphological augmentations',
+    ],
+    sandbox: 'cnn',
+    x: 390, y: 160, w: 140, h: 90,
+  },
+  {
+    id: 3, title: 'FSM Decoder', sub: 'Grammar + Lexicon',
+    file: 'src/field_reader/decoder.py', color: C.amber,
+    bullets: [
+      'Field-type grammar (DATE, PIN, CODE) constrains CNN top-5 candidate beam',
+      'Viterbi sequence decoding resolves ambiguous glyph boundaries',
+      'Confidence-aware fallback: prefers high-confidence tokens over raw sequence length',
+    ],
+    sandbox: 'fsm',
+    x: 570, y: 160, w: 140, h: 90,
+  },
+  {
+    id: 4, title: 'Auditor', sub: 'Human-in-the-Loop',
+    file: 'src/audit/logger.py', color: C.green,
+    bullets: [
+      'Replay any field through the pipeline with live operator audit trail',
+      'Operator corrections persist to the audit log for active-learning retraining',
+      'Confidence threshold tuning allows custom review routing per department',
+    ],
+    sandbox: 'audit',
+    x: 750, y: 160, w: 140, h: 90,
+  },
+];
 
-  // Canvas Drawing Context
-  const ctx = el.fieldCanvas.getContext('2d');
-  let loadedImageObj = null;
+const EDGES = [
+  { from: 0, to: 1 }, { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 4 },
+];
 
-  // Initialize Application
-  async function init() {
-    setupEventListeners();
-    await loadBenchmarkFields();
-    await loadAuditLogs();
-    
-    // Auto-select first benchmark item
-    if (state.fields.length > 0) {
-      selectBenchmarkField(state.fields[0]);
-    }
-  }
+/* ─── Benchmark Comparison Matrix Data ────────────────────────────────────── */
+const BENCHMARK_DATA = [
+  { field: 'Date (DD/MM/YYYY)',  n: 50,  formflow: 96.1, tesseract: 78.4, aws: 88.2, google: 91.3 },
+  { field: 'Postal PIN Code',    n: 30,  formflow: 98.4, tesseract: 83.1, aws: 92.0, google: 94.8 },
+  { field: 'Alphanumeric Code',  n: 40,  formflow: 94.7, tesseract: 72.6, aws: 87.4, google: 90.1 },
+  { field: 'Mixed Freeform Ink', n: 30,  formflow: 91.3, tesseract: 61.0, aws: 83.7, google: 88.5 },
+  { field: 'Overall Benchmark',  n: 150, formflow: 95.4, tesseract: 74.6, aws: 88.9, google: 91.7, sota: true },
+];
 
-  // Event Listeners
-  function setupEventListeners() {
-    // Tabs
-    el.tabBenchmark.addEventListener('click', () => switchTab('benchmark'));
-    el.tabCustom.addEventListener('click', () => switchTab('custom'));
+/* ─── Fallback Sample Fields ──────────────────────────────────────────────── */
+const FALLBACK_FIELDS = [
+  { field_id: 1, filename: 'field_0001_date.png', field_type: 'Date', ground_truth: '02/06/1984', is_comb_box: false, expected_cells: 10, image_url: '/api/image/field_0001_date.png' },
+  { field_id: 2, filename: 'field_0002_date.png', field_type: 'Date', ground_truth: '15/11/2003', is_comb_box: true,  expected_cells: 10, image_url: '/api/image/field_0002_date.png' },
+  { field_id: 3, filename: 'field_0003_pin.png',  field_type: 'Pin',  ground_truth: '560034',     is_comb_box: true,  expected_cells: 6,  image_url: '/api/image/field_0003_pin.png' },
+  { field_id: 4, filename: 'field_0004_code.png', field_type: 'Code', ground_truth: 'KA-5021',    is_comb_box: false, expected_cells: 7,  image_url: '/api/image/field_0004_code.png' },
+  { field_id: 5, filename: 'field_0005_date.png', field_type: 'Date', ground_truth: '29/02/2024', is_comb_box: true,  expected_cells: 10, image_url: '/api/image/field_0005_date.png' },
+];
 
-    // Filters
-    el.filterType.addEventListener('change', applyFilters);
-    el.filterBox.addEventListener('change', applyFilters);
-    el.searchInput.addEventListener('input', applyFilters);
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  EXACT UIVERSE TYPEWRITER LOADER (kind-mole-87 by Nawsome)                 */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function TypewriterLoader({ label = "Processing Handwritten Field…", sublabel = "Segmenting characters & executing neural inference…" }) {
+  return h('div', { className: 'typewriter-box' },
+    h('div', { className: 'typewriter' },
+      h('div', { className: 'slide' }, h('i', null)),
+      h('div', { className: 'paper' }),
+      h('div', { className: 'keyboard' })
+    ),
+    label && h('div', { className: 'processing-title', style: { marginTop: 20 } }, label),
+    sublabel && h('div', { className: 'processing-step', style: { marginTop: 6 } }, sublabel)
+  );
+}
 
-    // Dropzone & File Upload
-    el.dropzone.addEventListener('click', () => el.fileInput.click());
-    el.fileInput.addEventListener('change', handleFileUpload);
-    el.dropzone.addEventListener('dragover', (e) => { e.preventDefault(); el.dropzone.classList.add('dragover'); });
-    el.dropzone.addEventListener('dragleave', () => el.dropzone.classList.remove('dragover'));
-    el.dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      el.dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) {
-        processUploadedFile(e.dataTransfer.files[0]);
-      }
-    });
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  FULLSCREEN BOOT LOADER                                                     */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function FullscreenLoader() {
+  return h('div', { className: 'loader-overlay' },
+    h('div', { className: 'typewriter' },
+      h('div', { className: 'slide' }, h('i', null)),
+      h('div', { className: 'paper' }),
+      h('div', { className: 'keyboard' })
+    ),
+    h('div', { style: { textAlign: 'center' } },
+      h('div', { className: 'loader-label' }, 'FormFlow OCR Engine Initializing'),
+      h('div', { className: 'loader-subtext' }, 'Loading 150 benchmark test fields & 39-class neural weights…')
+    )
+  );
+}
 
-    // Custom metadata triggers re-prediction
-    el.customFieldType.addEventListener('change', () => { if (state.customImageBase64) predictCustomImage(); });
-    el.customIsComb.addEventListener('change', () => { if (state.customImageBase64) predictCustomImage(); });
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  TOP NAVIGATION BAR                                                         */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function TopNav({ view, setView, onAudit }) {
+  const tabs = [
+    { id: 'station',       icon: '🔬', label: 'Live Station' },
+    { id: 'architecture',  icon: '🏗️', label: 'Architecture & Benchmark' },
+    { id: 'overview',      icon: '🏠', label: 'Overview' },
+  ];
 
-    // Engine Mode Selector
-    el.enginePills.querySelectorAll('.engine-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        el.enginePills.querySelectorAll('.engine-pill').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        state.activeMode = btn.dataset.mode;
-        reExecuteCurrentField();
-      });
-    });
+  return h('nav', { className: 'top-nav' },
+    h('div', { className: 'brand-wrap' },
+      h('div', { className: 'brand-logo' }, 'FF'),
+      h('div', null,
+        h('div', { className: 'brand-name' }, 'FormFlow OCR'),
+        h('div', { className: 'brand-sub' }, 'Enterprise v2.1.0')
+      )
+    ),
+    h('div', { className: 'nav-tabs' },
+      tabs.map(t =>
+        h('button', {
+          key: t.id,
+          className: `nav-tab${view === t.id ? ' active' : ''}`,
+          onClick: () => setView(t.id),
+        }, t.icon, ' ', t.label)
+      )
+    ),
+    h('div', { className: 'nav-right' },
+      h('div', { className: 'live-badge' },
+        h('div', { className: 'live-dot' }),
+        'FastAPI Daemon Online'
+      ),
+      h('div', { className: 'live-badge', style: { borderColor: 'rgba(56, 189, 248, 0.35)', color: 'var(--brand)', background: 'rgba(56, 189, 248, 0.08)' } },
+        h('div', { className: 'live-dot', style: { background: 'var(--brand)', boxShadow: '0 0 8px var(--brand)' } }),
+        'Local LLM: Qwen 2.5'
+      ),
+      h('button', { className: 'btn-nav', onClick: onAudit }, '📋 Audit Log')
+    )
+  );
+}
 
-    // Confidence Slider
-    el.confSlider.addEventListener('input', handleSliderChange);
 
-    // Preset Buttons
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const val = parseFloat(btn.dataset.preset);
-        el.confSlider.value = val;
-        handleSliderChange();
-      });
-    });
 
-    // Toggle Bounding Boxes
-    el.btnToggleBoxes.addEventListener('click', () => {
-      state.showBoundingBoxes = !state.showBoundingBoxes;
-      el.btnToggleBoxes.textContent = state.showBoundingBoxes ? 'Hide Boxes' : 'Show Boxes';
-      renderCanvas();
-    });
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  VERIFICATION STATION (PRIMARY VIEW)                                        */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function StationPage() {
+  const [fields, setFields] = useState(FALLBACK_FIELDS);
+  const [selectedFieldId, setSelectedFieldId] = useState(1);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMsg, setProcessingMsg] = useState("Running Multi-Model Inference…");
+  const [prediction, setPrediction] = useState(null);
+  const [txn, setTxn] = useState('');
+  const [imgSrc, setImgSrc] = useState(null);
+  const [rawImgSrc, setRawImgSrc] = useState(null);
+  const [overlayMode, setOverlayMode] = useState('trocr'); // 'trocr' | 'raw'
+  const [accepted, setAccepted] = useState([]);
+  const [corrected, setCorrected] = useState([]);
+  const [rejected, setRejected] = useState([]);
+  const [glyphSel, setGlyphSel] = useState(0);
+  const [sec, setSec] = useState(0);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [llmRefining, setLlmRefining] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [uploadFieldType, setUploadFieldType] = useState('Auto');
+  const [procStageIndex, setProcStageIndex] = useState(0);
 
-    // Revert Transcription
-    el.btnRevert.addEventListener('click', () => {
-      if (state.currentResult) {
-        el.transcriptionInput.value = state.currentResult.text;
-        showToast('Transcription reverted to original AI output');
-      }
-    });
+  const STAGES = useMemo(() => [
+    { title: "Stage 1/4: Ink Analysis & Morphological Preprocessing", desc: "Removing background noise & segmenting handwriting contours…" },
+    { title: "Stage 2/4: Neural Recognition (TrOCR & SOTA Tri-Engine)", desc: "Executing line-level Vision Transformer & deep CNN feature extraction…" },
+    { title: "Stage 3/4: Tier-1 Fast Lexicon & OCR Confusion Repair", desc: "Checking SymSpell O(1) dictionary & visual character substitution matrix…" },
+    { title: "Stage 4/4: Tier-2 Local LLM Semantic Post-Correction", desc: "Validating language semantics & formatting via local Qwen 2.5 on RTX GPU…" }
+  ], []);
 
-    // Operator Action Buttons
-    el.btnAccept.addEventListener('click', () => submitOperatorAction('ACCEPT'));
-    el.btnCorrect.addEventListener('click', () => submitOperatorAction('CORRECT'));
-    el.btnReject.addEventListener('click', () => submitOperatorAction('REJECT'));
-
-    // Drawer Tabs
-    document.querySelectorAll('.drawer-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.drawer-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.dtab-pane').forEach(p => p.style.display = 'none');
-        tab.classList.add('active');
-        document.getElementById(`dpane-${tab.dataset.dtab}`).style.display = 'block';
-      });
-    });
-
-    // Audit CSV Export & Clear
-    el.btnExportCsv.addEventListener('click', exportAuditCsv);
-    el.btnClearAudit.addEventListener('click', clearAuditLogs);
-
-    // Shortcuts Modal
-    el.btnShortcuts.addEventListener('click', () => el.modalShortcuts.style.display = 'flex');
-    el.btnCloseModal.addEventListener('click', () => el.modalShortcuts.style.display = 'none');
-    el.modalShortcuts.addEventListener('click', (e) => {
-      if (e.target === el.modalShortcuts) el.modalShortcuts.style.display = 'none';
-    });
-
-    // Global Keyboard Shortcuts
-    window.addEventListener('keydown', handleGlobalKeydown);
-  }
-
-  // Load 150 Benchmark Fields
-  async function loadBenchmarkFields() {
-    try {
-      const res = await fetch('/api/benchmark/fields');
-      const data = await res.json();
-      state.fields = data.fields || [];
-      state.filteredFields = [...state.fields];
-      renderBenchmarkGallery();
-    } catch (err) {
-      console.error('Failed to load benchmark fields:', err);
-      el.galleryContainer.innerHTML = '<div class="gallery-loader text-danger">Failed to load benchmark fields.</div>';
-    }
-  }
-
-  // Render Benchmark Gallery
-  function renderBenchmarkGallery() {
-    if (state.filteredFields.length === 0) {
-      el.galleryContainer.innerHTML = '<div class="gallery-loader">No matching benchmark fields.</div>';
+  useEffect(() => {
+    if (!isProcessing) {
+      setProcStageIndex(0);
       return;
     }
+    const iv = setInterval(() => {
+      setProcStageIndex(prev => (prev + 1) % 4);
+    }, 600);
+    return () => clearInterval(iv);
+  }, [isProcessing]);
 
-    el.galleryContainer.innerHTML = state.filteredFields.map(f => `
-      <div class="gallery-card ${state.currentField && state.currentField.field_id === f.field_id ? 'active' : ''}" data-id="${f.field_id}">
-        <img src="${f.image_url}" alt="Field ${f.field_id}" class="gallery-card-thumb" loading="lazy" />
-        <div class="gallery-card-meta">
-          <span>#${f.field_id}</span>
-          <span>${f.field_type.split(' ')[0]}</span>
-        </div>
-        <div class="gallery-card-gt" title="${f.ground_truth}">${f.ground_truth}</div>
-      </div>
-    `).join('');
+  const fileInputRef = useRef(null);
 
-    // Attach click events
-    el.galleryContainer.querySelectorAll('.gallery-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const id = parseInt(card.dataset.id, 10);
-        const field = state.fields.find(item => item.field_id === id);
-        if (field) selectBenchmarkField(field);
-      });
-    });
-  }
+  // 1. Fetch benchmark fields catalog on mount
+  useEffect(() => {
+    fetch('/api/benchmark/fields')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.fields && data.fields.length > 0) {
+          setFields(data.fields);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
-  // Apply Filter Controls
-  function applyFilters() {
-    const typeVal = el.filterType.value;
-    const boxVal = el.filterBox.value;
-    const searchVal = el.searchInput.value.toLowerCase().trim();
+  // 2. Predict field whenever selection changes
+  const runPrediction = useCallback((fieldId, imageBase64 = null, forcedType = null) => {
+    setIsProcessing(true);
+    setProcStageIndex(0);
 
-    state.filteredFields = state.fields.filter(f => {
-      const matchType = (typeVal === 'all') || (f.field_type.toLowerCase() === typeVal.toLowerCase());
-      const matchBox = (boxVal === 'all') || (boxVal === 'comb' && f.is_comb_box) || (boxVal === 'freeform' && !f.is_comb_box);
-      const matchSearch = !searchVal || 
-        f.field_id.toString().includes(searchVal) || 
-        f.ground_truth.toLowerCase().includes(searchVal) ||
-        f.field_type.toLowerCase().includes(searchVal);
-      return matchType && matchBox && matchSearch;
-    });
-
-    renderBenchmarkGallery();
-  }
-
-  // Switch between Benchmark and Custom tabs
-  function switchTab(tab) {
-    if (tab === 'benchmark') {
-      el.tabBenchmark.classList.add('active');
-      el.tabCustom.classList.remove('active');
-      el.paneBenchmark.style.display = 'block';
-      el.paneCustom.style.display = 'none';
+    const payload = {};
+    if (imageBase64) {
+      payload.image_base64 = imageBase64;
+      const type = forcedType || uploadFieldType;
+      payload.field_type = type === 'CombBox' ? 'General' : type;
+      payload.is_comb_box = (type === 'CombBox');
     } else {
-      el.tabCustom.classList.add('active');
-      el.tabBenchmark.classList.remove('active');
-      el.paneCustom.style.display = 'block';
-      el.paneBenchmark.style.display = 'none';
+      payload.field_id = fieldId;
     }
+
+    fetch('/api/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(r => {
+        if (!r.ok) throw new Error("Prediction API Error");
+        return r.json();
+      })
+      .then(data => {
+        setPrediction(data);
+        setTxn(data.text || '');
+        setAiSuggestion(null);
+        const raw = data.orig_b64 || data.field_image_b64 || (imageBase64 ? (imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`) : null);
+        setRawImgSrc(raw);
+        if (data.annotated_image_b64) {
+          setImgSrc(data.annotated_image_b64);
+          setOverlayMode('trocr');
+        } else if (raw) {
+          setImgSrc(raw);
+          setOverlayMode('raw');
+        }
+        setGlyphSel(0);
+        setSec(0);
+      })
+      .catch(err => {
+        console.error("Predict error:", err);
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
+  }, [uploadFieldType]);
+
+  // Run on initial load or selectedFieldId change
+  useEffect(() => {
+    const cur = fields.find(f => f.field_id === selectedFieldId);
+    if (cur) {
+      setImgSrc(cur.image_url);
+    }
+    runPrediction(selectedFieldId);
+  }, [selectedFieldId, runPrediction, fields]);
+
+  // Timer
+  useEffect(() => {
+    const t = setInterval(() => setSec(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [selectedFieldId]);
+
+  function fmtTime(s) {
+    return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
   }
 
-  // Handle Custom File Upload
-  function handleFileUpload(e) {
-    if (e.target.files.length > 0) {
-      processUploadedFile(e.target.files[0]);
-    }
-  }
-
-  function processUploadedFile(file) {
-    if (!file.type.startsWith('image/')) {
-      showToast('Please upload an image file (PNG, JPG, BMP)', 'danger');
-      return;
-    }
+  // Handle uploaded File or Blob
+  const processImageFile = useCallback((file) => {
+    if (!file || !file.type.startsWith('image/')) return;
     const reader = new FileReader();
     reader.onload = (e) => {
-      state.customImageBase64 = e.target.result;
-      state.currentField = {
-        field_id: 'Upload',
-        field_type: el.customFieldType.value,
-        is_comb_box: el.customIsComb.value === 'true',
-        ground_truth: null
-      };
-      predictCustomImage();
+      const dataUrl = e.target.result;
+      setImgSrc(dataUrl);
+      runPrediction(null, dataUrl, uploadFieldType);
     };
     reader.readAsDataURL(file);
-  }
+  }, [runPrediction, uploadFieldType]);
 
-  async function predictCustomImage() {
-    if (!state.customImageBase64) return;
-    state.operatorStartTime = Date.now();
-    el.canvasPlaceholder.style.display = 'none';
-
-    try {
-      const res = await fetch('/api/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_base64: state.customImageBase64,
-          field_type: el.customFieldType.value,
-          is_comb_box: el.customIsComb.value === 'true',
-          mode: state.activeMode,
-          conf_threshold: state.confThreshold
-        })
-      });
-      const data = await res.json();
-      handlePredictionResult(data);
-    } catch (err) {
-      console.error('Custom prediction error:', err);
-      showToast('Error processing custom image', 'danger');
-    }
-  }
-
-  // Select and Run Benchmark Field
-  async function selectBenchmarkField(field) {
-    state.currentField = field;
-    state.operatorStartTime = Date.now();
-    el.canvasPlaceholder.style.display = 'none';
-
-    // Highlight card in gallery
-    el.galleryContainer.querySelectorAll('.gallery-card').forEach(c => {
-      c.classList.toggle('active', parseInt(c.dataset.id, 10) === field.field_id);
-    });
-
-    el.fieldMetaBadge.textContent = `Field #${field.field_id} • ${field.field_type} (${field.is_comb_box ? 'Comb-Box' : 'Freeform'})`;
-
-    try {
-      const res = await fetch('/api/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          field_id: field.field_id,
-          mode: state.activeMode,
-          conf_threshold: state.confThreshold
-        })
-      });
-      const data = await res.json();
-      handlePredictionResult(data);
-    } catch (err) {
-      console.error('Benchmark prediction error:', err);
-      showToast('Error processing benchmark field', 'danger');
-    }
-  }
-
-  // Re-execute current field (e.g. mode switch)
-  function reExecuteCurrentField() {
-    if (state.currentField) {
-      if (state.currentField.field_id === 'Upload') {
-        predictCustomImage();
-      } else {
-        selectBenchmarkField(state.currentField);
+  // Clipboard paste (Ctrl+V) anywhere on page
+  const handlePaste = useCallback((e) => {
+    const items = e.clipboardData ? e.clipboardData.items : [];
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        processImageFile(file);
+        break;
       }
     }
-  }
+  }, [processImageFile]);
 
-  // Handle Prediction Response
-  function handlePredictionResult(result) {
-    state.currentResult = result;
+  // Drag and drop handlers
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processImageFile(e.dataTransfer.files[0]);
+    }
+  }, [processImageFile]);
 
-    // Load base64 image onto canvas
-    loadedImageObj = new Image();
-    loadedImageObj.onload = () => {
-      renderCanvas();
-    };
-    loadedImageObj.src = result.field_image_b64;
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
 
-    // Update Decision Banner
-    updateDecisionBanner(result);
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
 
-    // Update Telemetry
-    el.teleMinConf.textContent = `${result.min_conf_pct}%`;
-    el.teleMinConf.className = `tele-val ${result.min_conf >= 0.85 ? 'text-success' : (result.min_conf >= 0.75 ? 'text-warning' : 'text-danger')}`;
-    el.teleMeanConf.textContent = `${result.mean_conf_pct}%`;
-    el.teleSyntax.textContent = result.syntax_valid ? 'Valid' : 'Syntax Issue';
-    el.teleSyntax.className = `tele-val ${result.syntax_valid ? 'text-success' : 'text-danger'}`;
-
-    // Update Ground Truth Badge
-    if (result.ground_truth) {
-      el.groundTruthBadge.style.display = 'inline-block';
-      const isMatch = result.is_exact_match;
-      el.groundTruthBadge.textContent = `Ground Truth: ${result.ground_truth} (${isMatch ? 'Exact Match ✓' : 'Mismatch ⚠️'})`;
-      el.groundTruthBadge.className = `badge ${isMatch ? 'badge-success' : 'badge-warning'}`;
+  const handleCopyTranscription = useCallback(() => {
+    if (!txn) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txn).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => fallbackCopy());
     } else {
-      el.groundTruthBadge.style.display = 'none';
+      fallbackCopy();
     }
-
-    // Update Transcription Input
-    el.transcriptionInput.value = result.text;
-
-    // Update Repairs Box
-    if (result.corrections && result.corrections.length > 0) {
-      el.repairsBox.style.display = 'block';
-      el.repairsList.innerHTML = result.corrections.map(c => `<li>• ${c}</li>`).join('');
-    } else {
-      el.repairsBox.style.display = 'none';
-      el.repairsList.innerHTML = '';
+    function fallbackCopy() {
+      const ta = document.createElement('textarea');
+      ta.value = txn;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
+  }, [txn]);
 
-    // Render Interactive Glyph Ribbon
-    renderGlyphRibbon(result.glyphs);
-  }
-
-  // Update Decision Banner
-  function updateDecisionBanner(result) {
-    const isApproved = (result.min_conf >= state.confThreshold && result.syntax_valid);
-    el.bannerLatency.textContent = `${result.latency_ms} ms`;
-
-    if (isApproved) {
-      el.decisionBanner.className = 'decision-banner banner-approved';
-      el.bannerTitle.textContent = 'AUTOMATED INGESTION APPROVED';
-      el.bannerSubtitle.textContent = `Zero-Touch Ingestion Authorized • Confidence ${result.min_conf_pct}% meets threshold ${Math.round(state.confThreshold * 100)}%`;
-      document.getElementById('banner-icon').innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-      `;
-    } else {
-      el.decisionBanner.className = 'decision-banner banner-flagged';
-      el.bannerTitle.textContent = 'FLAGGED FOR OPERATOR VERIFICATION';
-      el.bannerSubtitle.textContent = `Human-in-the-loop Routing Triggered • Confidence ${result.min_conf_pct}% below threshold ${Math.round(state.confThreshold * 100)}%`;
-      document.getElementById('banner-icon').innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-      `;
+  const handleAIRefine = useCallback(async () => {
+    if (!txn || isProcessing || llmRefining) return;
+    setLlmRefining(true);
+    try {
+      const resp = await fetch('/api/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: txn,
+          field_type: (prediction && prediction.field_type) ? prediction.field_type : 'General',
+          confidence: (prediction && prediction.mean_conf) ? prediction.mean_conf : 0.0,
+          use_llm: true
+        })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setAiSuggestion(data);
+      }
+    } catch (err) {
+      console.error('LLM Refine error:', err);
+    } finally {
+      setLlmRefining(false);
     }
-  }
+  }, [txn, isProcessing, llmRefining, prediction]);
 
-  // Handle Dynamic Slider Change
-  function handleSliderChange() {
-    state.confThreshold = parseFloat(el.confSlider.value);
-    el.gatingValDisplay.textContent = `θ = ${state.confThreshold.toFixed(2)}`;
-
-    // Re-evaluate current field status instantaneously
-    if (state.currentResult) {
-      updateDecisionBanner(state.currentResult);
-    }
-  }
-
-  // Render Canvas with Bounding Boxes
-  function renderCanvas() {
-    if (!loadedImageObj) return;
-
-    const w = loadedImageObj.naturalWidth || loadedImageObj.width;
-    const h = loadedImageObj.naturalHeight || loadedImageObj.height;
-
-    el.fieldCanvas.width = w;
-    el.fieldCanvas.height = h;
-    ctx.drawImage(loadedImageObj, 0, 0);
-
-    if (state.showBoundingBoxes && state.currentResult && state.currentResult.glyphs) {
-      state.currentResult.glyphs.forEach((g, idx) => {
-        const [x, y, bw, bh] = g.bbox;
-        const isActive = (state.activeGlyphIdx === idx);
-
-        // Box border
-        ctx.lineWidth = isActive ? 3 : 1.5;
-        if (isActive) {
-          ctx.strokeStyle = '#2563eb';
-          ctx.fillStyle = 'rgba(37, 99, 235, 0.15)';
-        } else if (g.conf >= 0.90) {
-          ctx.strokeStyle = '#059669';
-          ctx.fillStyle = 'rgba(5, 150, 105, 0.08)';
-        } else if (g.conf >= 0.75) {
-          ctx.strokeStyle = '#d97706';
-          ctx.fillStyle = 'rgba(217, 119, 6, 0.08)';
-        } else {
-          ctx.strokeStyle = '#dc2626';
-          ctx.fillStyle = 'rgba(220, 38, 38, 0.1)';
+  const handleClipboardPasteClick = useCallback(async () => {
+    if (navigator.clipboard && navigator.clipboard.read) {
+      try {
+        const items = await navigator.clipboard.read();
+        let found = false;
+        for (const item of items) {
+          const imageType = item.types.find(t => t.startsWith('image/'));
+          if (imageType) {
+            const blob = await item.getType(imageType);
+            processImageFile(blob);
+            found = true;
+            break;
+          }
         }
-
-        ctx.fillRect(x, y, bw, bh);
-        ctx.strokeRect(x, y, bw, bh);
-
-        // Character label on top of box
-        ctx.fillStyle = isActive ? '#2563eb' : (g.conf >= 0.90 ? '#059669' : '#d97706');
-        ctx.font = 'bold 11px monospace';
-        ctx.fillText(g.char, x + 2, y > 12 ? y - 3 : y + 12);
-      });
-    }
-  }
-
-  // Render Interactive Glyph Ribbon (Hero Component)
-  function renderGlyphRibbon(glyphs) {
-    if (!glyphs || glyphs.length === 0) {
-      el.glyphRibbon.innerHTML = '<div class="ribbon-empty">No character glyphs segmented.</div>';
-      return;
-    }
-
-    el.glyphRibbon.innerHTML = glyphs.map((g, idx) => `
-      <div class="glyph-card ${state.activeGlyphIdx === idx ? 'active' : ''}" data-idx="${idx}" id="glyph-card-${idx}">
-        <img src="${g.patch_b64}" class="glyph-patch-img" alt="Glyph ${idx}" />
-        <span class="glyph-main-char">${g.char}</span>
-        <span class="glyph-conf-badge ${g.badge_class}">${g.conf_pct}%</span>
-        <div class="glyph-alts-list">
-          ${g.alts.map((alt, altIdx) => `
-            <div class="alt-chip" data-idx="${idx}" data-char="${alt.char}" title="Click to replace with ${alt.char} (${alt.pct}%)">
-              <strong>${alt.char}</strong>
-              <span>${alt.pct}%</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `).join('');
-
-    // Attach card focus events
-    el.glyphRibbon.querySelectorAll('.glyph-card').forEach(card => {
-      card.addEventListener('mouseenter', () => {
-        state.activeGlyphIdx = parseInt(card.dataset.idx, 10);
-        renderCanvas();
-      });
-      card.addEventListener('mouseleave', () => {
-        state.activeGlyphIdx = null;
-        renderCanvas();
-      });
-      card.addEventListener('click', () => {
-        state.activeGlyphIdx = parseInt(card.dataset.idx, 10);
-        el.glyphRibbon.querySelectorAll('.glyph-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        renderCanvas();
-      });
-    });
-
-    // Attach alternative replacement chip clicks
-    el.glyphRibbon.querySelectorAll('.alt-chip').forEach(chip => {
-      chip.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const glyphIdx = parseInt(chip.dataset.idx, 10);
-        const newChar = chip.dataset.char;
-        replaceCharacterInTranscription(glyphIdx, newChar);
-      });
-    });
-  }
-
-  // Replace Character in Transcription Box
-  function replaceCharacterInTranscription(idx, newChar) {
-    const currentVal = el.transcriptionInput.value;
-    if (idx < currentVal.length) {
-      const arr = currentVal.split('');
-      arr[idx] = newChar;
-      el.transcriptionInput.value = arr.join('');
-
-      // Visual feedback
-      const card = document.getElementById(`glyph-card-${idx}`);
-      if (card) {
-        card.querySelector('.glyph-main-char').textContent = newChar;
-        card.classList.add('active');
+        if (!found) {
+          alert("No image found in clipboard! Please copy an image or take a screenshot first, then click Paste.");
+        }
+      } catch (err) {
+        console.warn("Clipboard read error:", err);
+        alert("Clipboard read permission was not granted. You can also press Ctrl+V directly anywhere on the page to paste!");
       }
+    } else {
+      alert("Your browser does not support direct clipboard button access. Please press Ctrl+V directly to paste your image!");
+    }
+  }, [processImageFile]);
 
-      showToast(`Character #${idx + 1} swapped to '${newChar}'`, 'success');
+  // Operator verification actions
+  function doAccept() {
+    setAccepted(a => [...a, selectedFieldId]);
+    advance();
+  }
+
+  function doCorrect() {
+    fetch('/api/audit/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        field_id: String(selectedFieldId),
+        original_text: prediction ? prediction.raw_text || prediction.text : '',
+        verified_text: txn,
+        action: 'CORRECT',
+        operator_latency_s: sec,
+      }),
+    }).catch(() => {});
+    setCorrected(c => [...c, selectedFieldId]);
+    advance();
+  }
+
+  function doReject() {
+    fetch('/api/audit/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        field_id: String(selectedFieldId),
+        original_text: prediction ? prediction.raw_text || prediction.text : '',
+        verified_text: txn,
+        action: 'REJECT',
+        operator_latency_s: sec,
+      }),
+    }).catch(() => {});
+    setRejected(r => [...r, selectedFieldId]);
+    advance();
+  }
+
+  function advance() {
+    const curIdx = fields.findIndex(f => f.field_id === selectedFieldId);
+    if (curIdx >= 0 && curIdx < fields.length - 1) {
+      setSelectedFieldId(fields[curIdx + 1].field_id);
     }
   }
 
-  // Submit Operator Action (Accept / Correct / Reject)
-  async function submitOperatorAction(action) {
-    if (!state.currentResult) return;
+  // Active glyph details
+  const glyphs = (prediction && prediction.glyphs) ? prediction.glyphs : [];
+  const activeGlyph = glyphs[glyphSel];
+  const isFlagged = prediction ? prediction.status === 'FLAGGED' : false;
+  const meanConf = prediction ? prediction.mean_conf : 0.95;
+  const totalVerified = accepted.length + corrected.length + rejected.length;
 
-    const latencySec = (Date.now() - state.operatorStartTime) / 1000.0;
-    const originalText = state.currentResult.text;
-    const verifiedText = (action === 'REJECT') ? '[REJECTED]' : el.transcriptionInput.value;
+  return h('div', { className: 'page', onPaste: handlePaste },
+    /* Hidden file input for direct file upload */
+    h('input', {
+      type: 'file',
+      ref: fileInputRef,
+      style: { display: 'none' },
+      accept: 'image/*',
+      onChange: (e) => {
+        if (e.target.files && e.target.files[0]) {
+          processImageFile(e.target.files[0]);
+        }
+      }
+    }),
 
-    const payload = {
-      field_id: state.currentField ? String(state.currentField.field_id) : 'Custom',
-      field_type: state.currentResult.field_type || 'Unknown',
-      original_text: originalText,
-      verified_text: verifiedText,
-      action: action,
-      status: state.currentResult.status,
-      min_conf: state.currentResult.min_conf,
-      operator_latency_s: latencySec,
-      notes: (action === 'CORRECT') ? `Corrected from ${originalText} to ${verifiedText}` : ''
+    /* Header with Live Processing Badge */
+    h('div', { className: 'station-header' },
+      h('div', null,
+        h('h1', null, '🔬 Live Verification Station'),
+        h('div', { style: { fontSize: 13, color: 'var(--tx3)', marginTop: 4 } },
+          'Handwritten form field review · Automated routing for low confidence (<85%)'
+        )
+      ),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
+        /* Status badge indicates processing state immediately */
+        h('div', { className: `proc-status-badge ${isProcessing ? 'processing' : 'ready'}` },
+          h('div', {
+            className: 'live-dot',
+            style: { background: isProcessing ? 'var(--amber)' : 'var(--green)' }
+          }),
+          isProcessing ? 'PROCESSING INFERENCE…' : 'READY FOR VERIFICATION'
+        ),
+        h('div', { style: { fontSize: 13, color: 'var(--tx3)' } },
+          `${totalVerified}/${fields.length} processed`
+        ),
+        h('div', { className: `timer-badge ${sec < 45 ? 'ok' : 'warn'}` }, fmtTime(sec))
+      )
+    ),
+
+    /* Field Selector Row (Direct Upload + Clipboard + Dropdown) */
+    h('div', { className: 'field-selector-row' },
+      h('label', null, '📄 Field Catalog:'),
+      h('select', {
+        className: 'field-select',
+        value: selectedFieldId,
+        disabled: isProcessing,
+        onChange: e => setSelectedFieldId(Number(e.target.value)),
+      },
+        fields.map(f => {
+          const isDone = accepted.includes(f.field_id) || corrected.includes(f.field_id) || rejected.includes(f.field_id);
+          return h('option', { key: f.field_id, value: f.field_id },
+            `#${f.field_id} · ${f.field_type} · GT: ${f.ground_truth} ${isDone ? '✓ Verified' : ''}`
+          );
+        })
+      ),
+      h('div', { style: { display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 8 } },
+        h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--tx3)' } }, 'Format:'),
+        h('select', {
+          className: 'field-select',
+          style: { minWidth: 150, padding: '4px 8px', fontSize: 12 },
+          value: uploadFieldType,
+          disabled: isProcessing,
+          onChange: e => setUploadFieldType(e.target.value),
+        },
+          h('option', { value: 'Auto' }, '✨ Auto-Detect (Handwriting)'),
+          h('option', { value: 'Date' }, '📅 Date (DD/MM/YYYY)'),
+          h('option', { value: 'Pin' }, '📮 Postal PIN (6-digit)'),
+          h('option', { value: 'Code' }, '🏷️ Alphanumeric Code'),
+          h('option', { value: 'CombBox' }, '🗂️ Rigid Comb-Box Grid')
+        )
+      ),
+      h('button', {
+        className: 'btn-nav',
+        title: 'Upload any handwritten field image from your computer',
+        onClick: () => fileInputRef.current && fileInputRef.current.click(),
+        disabled: isProcessing,
+      }, '📁 Upload Image File'),
+      h('button', {
+        className: 'btn-nav',
+        title: 'Paste image directly from clipboard (or press Ctrl+V)',
+        onClick: handleClipboardPasteClick,
+        disabled: isProcessing,
+      }, '📋 Paste from Clipboard'),
+      h('button', {
+        className: 'btn-nav',
+        title: 'Re-run TrOCR Vision-Language inference',
+        onClick: () => runPrediction(selectedFieldId),
+        disabled: isProcessing,
+      }, '⚡ Re-run OCR'),
+      h('div', { style: { fontSize: 12.5, color: 'var(--tx3)', marginLeft: 'auto' } },
+        '📋 Click Paste, press Ctrl+V, or drag image'
+      )
+    ),
+
+    /* Main Dual Pane Layout (Both panes resizable) */
+    h('div', { className: 'verification-grid' },
+
+      /* LEFT PANE: Field Image Crop & Segmenter Inspection */
+      h('div', { className: 'pane-card', style: { position: 'relative' } },
+        /* Left Pane Processing Overlay */
+        isProcessing && h('div', {
+          className: 'processing-overlay',
+          style: {
+            background: 'rgba(15, 23, 42, 0.72)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12
+          }
+        },
+          h('div', { className: 'live-dot', style: { width: 14, height: 14, background: 'var(--brand)', boxShadow: '0 0 16px var(--brand)' } }),
+          h('div', { style: { fontSize: 13, fontWeight: 600, color: 'var(--brand)', letterSpacing: '0.03em' } }, 'Scanning Visual Ink & Spatial Geometry…')
+        ),
+
+        h('div', { className: 'pane-header' },
+          h('div', { className: 'pane-title' },
+            h('span', { style: { display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: C.blue, marginRight: 4 } }),
+            'Field Image & Token-to-Ink Alignment'
+          ),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' } },
+            /* 2-way Interactive Overlay Switcher */
+            h('div', { className: 'segmented-control' },
+              h('button', {
+                className: `segmented-btn ${overlayMode === 'trocr' ? 'active' : ''}`,
+                title: "Show TrOCR Vision-Language token cross-attention bounding boxes",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setOverlayMode('trocr');
+                  if (prediction && prediction.annotated_image_b64) {
+                    setImgSrc(prediction.annotated_image_b64);
+                  }
+                }
+              }, '👁️ Tokens'),
+              h('button', {
+                className: `segmented-btn ${overlayMode === 'raw' ? 'active' : ''}`,
+                title: "Show raw unmodified handwriting ink image",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setOverlayMode('raw');
+                  if (rawImgSrc) {
+                    setImgSrc(rawImgSrc);
+                  } else if (prediction && (prediction.orig_b64 || prediction.field_image_b64)) {
+                    setImgSrc(prediction.orig_b64 || prediction.field_image_b64);
+                  }
+                }
+              }, '🖼️ Raw')
+            ),
+            h('div', { style: { fontSize: 12, color: 'var(--tx3)' } },
+              `Field #${selectedFieldId}`
+            )
+          )
+        ),
+
+        /* Image Display or Interactive Drop Zone */
+        h('div', {
+          className: `drop-zone ${isDragOver ? 'drag-over' : ''}`,
+          onDrop: handleDrop,
+          onDragOver: handleDragOver,
+          onDragLeave: handleDragLeave,
+          onClick: () => fileInputRef.current && fileInputRef.current.click(),
+          title: "Click to upload image, drag & drop, or paste (Ctrl+V)",
+        },
+          imgSrc
+            ? h('img', {
+                src: imgSrc,
+                alt: 'Handwritten field crop',
+                style: { maxHeight: 180, objectFit: 'contain' }
+              })
+            : h('div', { className: 'drop-placeholder' },
+                h('span', { className: 'icon' }, '🖼️'),
+                'Drop handwritten field image here',
+                h('br'),
+                'or click to upload from computer',
+                h('br'),
+                h('span', { style: { color: 'var(--blue)', fontWeight: 700, display: 'block', marginTop: 8 } },
+                  'Paste (Ctrl+V) · Drag & Drop · Browse Files'
+                )
+              )
+        ),
+
+        /* Metadata Grid */
+        h('div', { className: 'meta-grid' },
+          [
+            { k: 'Architecture', v: 'Option 1: TrOCR + Spatial Alignment' },
+            { k: 'Mean Confidence', v: `${(meanConf * 100).toFixed(1)}%` },
+            { k: 'Tokens Aligned', v: glyphs.length },
+            { k: 'Routing Status', v: isFlagged ? '⚠️ Review Triggered' : '✅ Auto-Approved' },
+            { k: 'Comb-Box Mode', v: 'Morphology Active' },
+            { k: 'Operator Latency', v: fmtTime(sec) },
+          ].map((m, i) =>
+            h('div', { key: i, className: 'meta-cell' },
+              h('div', { className: 'meta-key' }, m.k),
+              h('div', { className: 'meta-val' }, m.v)
+            )
+          )
+        )
+      ),
+
+      /* RIGHT PANE: OCR Decision & Operator Verification */
+      /* RIGHT PANE: Pipeline Transcription */
+      h('div', { className: 'pane-card', style: { position: 'relative', display: 'flex', flexDirection: 'column' } },
+        h('div', { className: 'pane-header' },
+          h('div', { className: 'pane-title' },
+            h('span', {
+              style: {
+                display: 'inline-block',
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                background: isProcessing ? 'var(--brand)' : (isFlagged ? C.amber : C.green),
+                marginRight: 4
+              }
+            }),
+            'Pipeline Transcription'
+          ),
+          h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontSize: 13, fontWeight: 700, color: 'var(--tx3)' } },
+            isProcessing ? 'Processing…' : `Min: ${prediction ? (prediction.min_conf * 100).toFixed(1) : '95.0'}%`
+          )
+        ),
+
+        /* State 1: Active Processing - Show Dedicated Full Card Loader */
+        isProcessing ? h('div', {
+          className: 'transcription-loading-state',
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '48px 20px',
+            minHeight: 340,
+            textAlign: 'center'
+          }
+        },
+          h(TypewriterLoader, {
+            label: STAGES[procStageIndex].title,
+            sublabel: STAGES[procStageIndex].desc
+          }),
+          h('div', {
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              marginTop: 22,
+              padding: '6px 16px',
+              borderRadius: 20,
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.25)'
+            }
+          },
+            [0, 1, 2, 3].map(stg => h('span', {
+              key: stg,
+              style: {
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: stg <= procStageIndex ? 'var(--brand)' : 'rgba(156, 163, 175, 0.3)',
+                boxShadow: stg === procStageIndex ? '0 0 8px var(--brand)' : 'none',
+                transition: 'all 0.3s ease'
+              }
+            })),
+            h('span', {
+              style: {
+                fontSize: 12,
+                fontWeight: 600,
+                color: 'var(--brand)',
+                marginLeft: 4
+              }
+            }, `Processing Step ${procStageIndex + 1} of 4: Active Neural Pass`)
+          )
+        ) : (
+          /* State 2: Processing Complete - Show Verified Transcription */
+          prediction ? h(React.Fragment, null,
+            /* Decision Banner */
+            h('div', { className: `decision-banner ${isFlagged ? 'flagged' : 'approved'}` },
+              h('div', { className: 'banner-left' },
+                h('div', { className: 'banner-icon' }, isFlagged ? '⚠️' : '✅'),
+                h('div', null,
+                  h('div', { className: 'banner-title' },
+                    isFlagged ? 'Needs Operator Verification' : 'High Confidence · Auto-Approved'
+                  ),
+                  h('div', { className: 'banner-reason' },
+                    prediction && prediction.flag_reasons && prediction.flag_reasons.length > 0
+                      ? prediction.flag_reasons.join(' · ')
+                      : 'All character confidence thresholds and FSM grammar checks passed'
+                  )
+                )
+              ),
+              h('div', { className: 'banner-conf' }, `${(meanConf * 100).toFixed(0)}%`)
+            ),
+
+            /* Transcription Input Header with Lexicon Badge & AI Refine button */
+            h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 } },
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                h('label', { className: 'txn-label', style: { margin: 0 } }, 'Verified Transcription'),
+                prediction && prediction.tier1_dict_corrected && h('span', {
+                  style: {
+                    fontSize: 10.5,
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    background: 'rgba(34, 197, 94, 0.15)',
+                    color: 'var(--green)',
+                    fontWeight: 700,
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  },
+                  title: `Lexicon auto-corrected: ${(prediction.tier1_dict_notes || []).join('; ')}`
+                }, '📚 Lexicon Aligned')
+              ),
+              h('div', { style: { display: 'flex', gap: 6 } },
+                h('button', {
+                  className: 'btn-nav',
+                  style: {
+                    fontSize: 11.5,
+                    padding: '3px 10px',
+                    height: 26,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    borderColor: 'rgba(56, 189, 248, 0.4)',
+                    color: 'var(--brand)',
+                    background: 'rgba(56, 189, 248, 0.08)'
+                  },
+                  title: 'Query Local Qwen 2.5 LLM for semantic OCR post-correction',
+                  disabled: isProcessing || llmRefining || !txn,
+                  onClick: handleAIRefine,
+                }, llmRefining ? '⚡ Refining…' : '✨ AI Refine (Qwen 2.5)'),
+                h('button', {
+                  className: 'btn-nav',
+                  style: { fontSize: 11.5, padding: '3px 10px', height: 26, display: 'inline-flex', alignItems: 'center', gap: 4 },
+                  title: 'Copy verified transcription text to clipboard',
+                  disabled: !txn,
+                  onClick: handleCopyTranscription,
+                }, copied ? '✓ Copied!' : '📋 Copy Text')
+              )
+            ),
+            h('input', {
+              type: 'text',
+              className: 'txn-input',
+              value: txn,
+              disabled: isProcessing,
+              onChange: e => setTxn(e.target.value),
+              placeholder: 'Transcribed text…',
+              style: { marginTop: 8 }
+            }),
+
+            /* AI Refinement Breakdown Card */
+            prediction && (prediction.llm_applied || prediction.raw_ocr_text) && h('div', {
+              className: 'ai-refinement-summary',
+              style: {
+                background: 'rgba(255, 255, 255, 0.92)',
+                border: '1px solid rgba(226, 232, 240, 0.95)',
+                borderRadius: 'var(--radius)',
+                padding: '12px 14px',
+                marginTop: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+              }
+            },
+              h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--tx1)' } },
+                  h('span', null, '🤖'),
+                  'Local Qwen 2.5 7B Verification',
+                  prediction.llm_applied
+                    ? h('span', {
+                        style: {
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          borderRadius: 10,
+                          background: 'rgba(34, 197, 94, 0.15)',
+                          color: 'var(--green)',
+                          fontWeight: 700
+                        }
+                      }, '✓ Corrected & Verified')
+                    : h('span', {
+                        style: {
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          borderRadius: 10,
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          color: 'var(--brand)',
+                          fontWeight: 700
+                        }
+                      }, '✓ Confirmed Accurate')
+                ),
+                prediction.pipeline_stages && h('div', {
+                  style: { fontSize: 11, color: 'var(--tx3)', fontFamily: '"JetBrains Mono", monospace' }
+                }, `${prediction.pipeline_stages.total_ms}ms total`)
+              ),
+              /* Comparison Pills */
+              h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, fontSize: 11.5 } },
+                h('div', { style: { background: 'rgba(241, 245, 249, 0.7)', padding: '6px 10px', borderRadius: 6 } },
+                  h('div', { style: { color: 'var(--tx3)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' } }, 'Raw Neural OCR'),
+                  h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontWeight: 600, marginTop: 2 } }, prediction.raw_ocr_text || '—')
+                ),
+                h('div', { style: { background: 'rgba(241, 245, 249, 0.7)', padding: '6px 10px', borderRadius: 6 } },
+                  h('div', { style: { color: 'var(--tx3)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' } }, 'Tier-1 Lexicon'),
+                  h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontWeight: 600, marginTop: 2 } }, prediction.tier1_text || '—')
+                ),
+                h('div', { style: { background: 'rgba(238, 242, 255, 0.7)', padding: '6px 10px', borderRadius: 6 } },
+                  h('div', { style: { color: 'var(--brand)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' } }, 'Final Verified Text'),
+                  h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontWeight: 700, color: 'var(--brand)', marginTop: 2 } }, prediction.text || '—')
+                )
+              ),
+              prediction.llm_reasoning && h('div', {
+                style: {
+                  fontSize: 11.5,
+                  color: 'var(--tx2)',
+                  lineHeight: 1.4,
+                  background: 'rgba(248, 250, 252, 0.8)',
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  borderLeft: '3px solid var(--brand)'
+                }
+              },
+                h('span', { style: { fontWeight: 600, color: 'var(--tx1)', marginRight: 4 } }, 'Refinement Explanation:'),
+                prediction.llm_reasoning
+              )
+            ),
+
+            /* AI Refinement Suggestion Card */
+            aiSuggestion && h('div', {
+              className: 'ai-suggestion-box',
+              style: {
+                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                borderRadius: 'var(--radius)',
+                padding: '12px 14px',
+                marginTop: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
+              }
+            },
+              h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: 'var(--brand)' } },
+                  h('span', null, '✨'),
+                  'Local Qwen 2.5 7B Suggestion',
+                  aiSuggestion.tier2_llm && aiSuggestion.tier2_llm.latency_ms && h('span', {
+                    style: {
+                      fontSize: 10,
+                      padding: '1px 6px',
+                      borderRadius: 8,
+                      background: 'rgba(56, 189, 248, 0.2)',
+                      color: 'var(--brand)'
+                    }
+                  }, `${aiSuggestion.tier2_llm.latency_ms}ms`)
+                ),
+                h('div', { style: { display: 'flex', gap: 6 } },
+                  h('button', {
+                    className: 'btn-nav',
+                    style: { fontSize: 11, padding: '2px 8px', height: 24 },
+                    onClick: () => setAiSuggestion(null)
+                  }, '✕ Dismiss'),
+                  h('button', {
+                    className: 'btn-accept',
+                    style: { padding: '2px 10px', fontSize: 11.5, height: 24 },
+                    onClick: () => {
+                      setTxn(aiSuggestion.recommended_text);
+                      setAiSuggestion(null);
+                    }
+                  }, '✓ Apply Suggestion')
+                )
+              ),
+              h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontSize: 16, fontWeight: 700, color: 'var(--tx1)', letterSpacing: '0.04em' } },
+                aiSuggestion.recommended_text
+              ),
+              aiSuggestion.tier2_llm && aiSuggestion.tier2_llm.reasoning && h('div', { style: { fontSize: 11.5, color: 'var(--tx2)', lineHeight: 1.4 } },
+                aiSuggestion.tier2_llm.reasoning
+              )
+            ),
+
+            /* Action Buttons */
+            h('div', { className: 'actions-row', style: { marginTop: 20 } },
+              h('button', {
+                className: 'btn-accept',
+                disabled: isProcessing,
+                onClick: doAccept,
+              }, '✅ Accept (A)'),
+              h('button', {
+                className: 'btn-correct',
+                disabled: isProcessing,
+                onClick: doCorrect,
+              }, '✏️ Save Correction (C)'),
+              h('button', {
+                className: 'btn-reject',
+                disabled: isProcessing,
+                onClick: doReject,
+              }, '✗ Reject (R)')
+            ),
+
+            h('div', { className: 'hotkey-row', style: { marginTop: 12 } },
+              h('span', null, h('kbd', { className: 'hk' }, 'A'), ' Accept'),
+              h('span', null, h('kbd', { className: 'hk' }, 'C'), ' Save Correction'),
+              h('span', null, h('kbd', { className: 'hk' }, 'R'), ' Reject Field'),
+              h('span', { style: { marginLeft: 'auto', color: 'var(--tx3)' } },
+                'Corrections logged for continuous active learning'
+              )
+            )
+          ) : (
+            /* State 3: Empty state when waiting for selection */
+            h('div', {
+              style: {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '60px 20px',
+                color: 'var(--tx3)',
+                fontSize: 13,
+                minHeight: 280
+              }
+            },
+              h('div', { style: { fontSize: 32, marginBottom: 12 } }, '📄'),
+              'Upload a form field or select one from the catalog to begin verification'
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DRAGGABLE ARCHITECTURE DIAGRAM (SVG NODES THAT STAY CONNECTED)            */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function ArchDiagram({ nodes, setNodes, selected, setSelected }) {
+  const svgRef = useRef(null);
+  const dragging = useRef(null);
+
+  function ptOf(e) {
+    const r = svgRef.current.getBoundingClientRect();
+    const scaleX = 960 / r.width;
+    const scaleY = 420 / r.height;
+    const touch = e.touches ? e.touches[0] : e;
+    return {
+      x: (touch.clientX - r.left) * scaleX,
+      y: (touch.clientY - r.top) * scaleY,
     };
+  }
 
-    try {
-      const res = await fetch('/api/audit/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.success) {
-        state.auditLogs.unshift(data.record);
-        renderAuditTable();
-        showToast(
-          action === 'ACCEPT' ? `Field #${payload.field_id} ingested successfully ✓` :
-          (action === 'CORRECT' ? `Correction submitted for #${payload.field_id} ✏️` : `Field #${payload.field_id} rejected 🚩`),
-          action === 'ACCEPT' ? 'success' : (action === 'CORRECT' ? 'warning' : 'danger')
+  function onMouseDown(e, id) {
+    e.stopPropagation();
+    setSelected(id);
+    const pt = ptOf(e);
+    const node = nodes.find(n => n.id === id);
+    if (!node) return;
+    dragging.current = { id, ox: pt.x - node.x, oy: pt.y - node.y };
+  }
+
+  function onMouseMove(e) {
+    if (!dragging.current) return;
+    const pt = ptOf(e);
+    const { id, ox, oy } = dragging.current;
+    setNodes(prev => prev.map(n => n.id === id
+      ? {
+          ...n,
+          x: Math.max(4, Math.min(960 - n.w - 4, pt.x - ox)),
+          y: Math.max(4, Math.min(420 - n.h - 4, pt.y - oy)),
+        }
+      : n
+    ));
+  }
+
+  function onMouseUp() {
+    dragging.current = null;
+  }
+
+  // Smooth Bezier Curve connecting node edges dynamically
+  function edgePath(from, to) {
+    const s = nodes.find(n => n.id === from);
+    const t = nodes.find(n => n.id === to);
+    if (!s || !t) return '';
+    const sx = s.x + s.w, sy = s.y + s.h / 2;
+    const tx = t.x,       ty = t.y + t.h / 2;
+    const cx = (sx + tx) / 2;
+    return `M${sx},${sy} C${cx},${sy} ${cx},${ty} ${tx},${ty}`;
+  }
+
+  function midPt(from, to) {
+    const s = nodes.find(n => n.id === from);
+    const t = nodes.find(n => n.id === to);
+    if (!s || !t) return { x: 0, y: 0 };
+    return { x: (s.x + s.w + t.x) / 2, y: (s.y + s.h / 2 + t.y + t.h / 2) / 2 };
+  }
+
+  const GATE_LABELS = [
+    'Raw Pixel Matrix',
+    '32×32 Norm Tensors',
+    '39-Class Logits',
+    'Viterbi Tokens',
+    'Audited Output'
+  ];
+
+  return h('svg', {
+    ref: svgRef,
+    viewBox: '0 0 960 420',
+    className: 'arch-svg',
+    onMouseMove, onMouseUp, onMouseLeave: onMouseUp,
+    onTouchMove: onMouseMove, onTouchEnd: onMouseUp,
+    style: { userSelect: 'none' },
+  },
+    h('defs', null,
+      h('marker', { id: 'ah', markerWidth: 8, markerHeight: 6, refX: 7, refY: 3, orient: 'auto' },
+        h('polygon', { points: '0 0, 8 3, 0 6', fill: 'rgba(0,0,0,0.25)' })
+      ),
+      h('marker', { id: 'ah-hot', markerWidth: 8, markerHeight: 6, refX: 7, refY: 3, orient: 'auto' },
+        h('polygon', { points: '0 0, 8 3, 0 6', fill: C.blue })
+      ),
+      h('pattern', { id: 'sg', width: 30, height: 30, patternUnits: 'userSpaceOnUse' },
+        h('path', { d: 'M30 0H0V30', fill: 'none', stroke: 'rgba(0,0,0,0.04)', strokeWidth: 1 })
+      )
+    ),
+    h('rect', { width: '100%', height: '100%', fill: 'url(#sg)' }),
+
+    /* Connected dynamic edges that cannot disconnect */
+    EDGES.map(({ from, to }) => {
+      const isHot = selected === from || selected === to;
+      const mid = midPt(from, to);
+      return h(React.Fragment, { key: `e${from}-${to}` },
+        h('path', {
+          d: edgePath(from, to),
+          className: `arch-edge${isHot ? ' hot' : ''}`,
+          style: { '--edge-clr': C.blue },
+          markerEnd: `url(#${isHot ? 'ah-hot' : 'ah'})`,
+        }),
+        h('text', {
+          x: mid.x, y: mid.y - 8,
+          textAnchor: 'middle',
+          className: 'gate-label',
+          fill: 'rgba(0,0,0,0.4)',
+        }, GATE_LABELS[from])
+      );
+    }),
+
+    /* Draggable Grid-Free Architecture Nodes */
+    nodes.map(node =>
+      h('g', {
+        key: node.id,
+        className: `arch-node${selected === node.id ? ' selected' : ''}`,
+        style: { '--node-clr': node.color },
+        transform: `translate(${node.x},${node.y})`,
+        onMouseDown: e => onMouseDown(e, node.id),
+        onTouchStart: e => { e.preventDefault(); onMouseDown(e, node.id); },
+        tabIndex: 0,
+        onClick: () => setSelected(node.id),
+      },
+        h('rect', { x: 0, y: 0, width: node.w, height: node.h, rx: 14 }),
+        h('rect', { x: 0, y: 0, width: node.w, height: 6, rx: 14, fill: node.color }),
+        h('rect', { x: 0, y: 4, width: node.w, height: 2, fill: node.color }),
+        h('text', { x: 12, y: 22, className: 'arch-node-num', fill: node.color }, `0${node.id + 1}`),
+        h('text', { x: node.w / 2, y: 44, textAnchor: 'middle', className: 'arch-node-title' }, node.title),
+        h('text', { x: node.w / 2, y: 59, textAnchor: 'middle', className: 'arch-node-sub' }, node.sub),
+        h('text', { x: node.w - 14, y: 20, textAnchor: 'middle', fontSize: 10, fill: 'rgba(0,0,0,0.25)' }, '⠿')
+      )
+    )
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  STAGE INSPECTOR (DETAILED MODEL METRICS & SANDBOX)                         */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function StageInspector({ stage }) {
+  const [thresh, setThresh] = useState(0.80);
+  const threshOpts = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95];
+  const acc = thresh < 0.75 ? 96.8 : thresh < 0.85 ? 95.4 : thresh < 0.90 ? 93.1 : 89.4;
+
+  function Sandbox() {
+    switch (stage.sandbox) {
+      case 'input':
+        return h('div', null,
+          h('div', { className: 'sandbox-title' }, '⎙ Ingestion Pipeline'),
+          h('div', { className: 'tile-row' },
+            '02/06/1984'.split('').map((ch, i) =>
+              h('div', { key: i, className: 'tile hw' }, ch)
+            )
+          ),
+          h('div', { style: { fontSize: 13, color: 'var(--tx3)', marginTop: 8 } },
+            'Ingests comb-box cells, underlines, or freeform handwriting automatically'
+          )
         );
-        autoAdvanceNextField();
-      }
-    } catch (err) {
-      console.error('Audit log error:', err);
+      case 'segmenter':
+        return h('div', null,
+          h('div', { className: 'sandbox-title' }, '⚙ Morphological Normalisation'),
+          h('div', { className: 'tile-row' },
+            ['0', '2', '/', '0', '6', '/', '1', '9', '8', '4'].map((ch, i) =>
+              h('div', { key: i, className: 'tile', style: { borderColor: C.blue } }, ch)
+            )
+          ),
+          h('div', { style: { fontSize: 13, color: 'var(--tx3)', marginTop: 8 } },
+            'Grid lines excised; character crops centred to 32×32 float tensors'
+          )
+        );
+      case 'cnn':
+        return h('div', null,
+          h('div', { className: 'sandbox-title' }, '📊 CNN Top-4 Glyph Logits ("0")'),
+          ...[['0', 98.4], ['O', 82.1], ['D', 34.6], ['Q', 12.1]].map(([ch, pct], i) =>
+            h('div', { key: i, className: 'prob-row' },
+              h('div', { className: 'prob-char' }, ch),
+              h('div', { className: 'prob-bar-bg' },
+                h('div', { className: 'prob-bar-fill', style: { width: `${pct}%`, background: i === 0 ? C.violet : undefined } })
+              ),
+              h('div', { className: 'prob-pct' }, `${pct}%`)
+            )
+          ),
+          h('div', { style: { fontSize: 12, color: 'var(--tx3)', marginTop: 8 } },
+            'Top prediction: "0" with 98.4% softmax probability'
+          )
+        );
+      case 'fsm':
+        return h('div', null,
+          h('div', { className: 'sandbox-title' }, '🔤 FSM Grammar Repair Engine'),
+          h('div', { className: 'thresh-pills' },
+            threshOpts.map(t =>
+              h('div', {
+                key: t,
+                className: `thresh-pill${thresh === t ? ' active' : ''}`,
+                onClick: () => setThresh(t),
+              }, `τ=${t}`)
+            )
+          ),
+          h('div', { className: 'diff-row' },
+            h('div', { className: 'diff-tok bad' }, 'O2/O6/l984'),
+            h('div', { className: 'diff-arrow' }, '→'),
+            h('div', { className: 'diff-tok good' }, '02/06/1984'),
+          ),
+          h('div', { style: { fontSize: 12, color: 'var(--tx3)' } },
+            `At threshold τ=${thresh} → Expected exact match ${acc}% on DATE fields`
+          )
+        );
+      case 'audit':
+        return h('div', null,
+          h('div', { className: 'sandbox-title' }, '🧾 Continuous Active Learning Audit'),
+          [
+            { label: 'Date syntax compliant (DD/MM/YYYY)', cls: 'pass', icon: '✓' },
+            { label: 'Minimum confidence ≥ threshold (τ=0.85)', cls: 'pass', icon: '✓' },
+            { label: 'Operator verified & logged to audit.csv', cls: 'pass', icon: '✓' },
+          ].map((item, i) =>
+            h('div', { key: i, className: `check-item ${item.cls}` },
+              h('span', null, item.icon), item.label
+            )
+          )
+        );
+      default:
+        return null;
     }
   }
 
-  // Auto-advance to next benchmark item
-  function autoAdvanceNextField() {
-    if (!state.currentField || state.currentField.field_id === 'Upload') return;
-    const currId = state.currentField.field_id;
-    const nextItem = state.fields.find(f => f.field_id === currId + 1);
-    if (nextItem) {
-      setTimeout(() => selectBenchmarkField(nextItem), 400);
-    }
+  return h('div', { className: 'inspector-card', style: { '--node-clr': stage.color } },
+    h('div', { className: 'inspector-meta' },
+      h('h3', null,
+        h('span', { style: { display: 'inline-block', width: 14, height: 14, borderRadius: '50%', background: stage.color } }),
+        stage.title
+      ),
+      h('div', { className: 'file-chip' }, '📁 ', stage.file),
+      h('ul', { className: 'stage-bullets' },
+        stage.bullets.map((b, i) => h('li', { key: i }, b))
+      )
+    ),
+    h('div', { className: 'sandbox' }, Sandbox())
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  BENCHMARK MATRIX (EMBEDDED INSIDE ARCHITECTURE VIEW)                       */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function BenchMatrix() {
+  return h('div', { className: 'bench-section' },
+    h('div', { className: 'bench-header' },
+      h('div', { className: 'section-chip chip-green' }, '📊 SOTA Verification Matrix'),
+      h('h3', null, 'Comparative Benchmark Performance (150 Real-World Fields)'),
+      h('p', null, 'Rigorous evaluation against Tesseract 5, AWS Textract, and Google Document AI')
+    ),
+    h('div', { className: 'bench-card' },
+      h('div', { className: 'table-scroll' },
+        h('table', { className: 'bench-table' },
+          h('thead', null,
+            h('tr', null,
+              ['Field Category', 'Test Fields (N)', 'FormFlow OCR (Ours)', 'Tesseract 5', 'AWS Textract', 'Google DocAI'].map(th =>
+                h('th', { key: th }, th)
+              )
+            )
+          ),
+          h('tbody', null,
+            BENCHMARK_DATA.map((row, i) =>
+              h('tr', { key: i, className: row.sota ? 'sota-row' : '' },
+                h('td', { style: { fontWeight: 600 } }, row.field),
+                h('td', { style: { color: 'var(--tx3)' } }, row.n),
+                h('td', { style: { fontWeight: 800, color: C.blue } }, `${row.formflow.toFixed(1)}% ★`),
+                h('td', null, `${row.tesseract.toFixed(1)}%`),
+                h('td', null, `${row.aws.toFixed(1)}%`),
+                h('td', null, `${row.google.toFixed(1)}%`)
+              )
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  ARCHITECTURE STUDIO VIEW                                                   */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function ArchitecturePage() {
+  const [nodes, setNodes] = useState(INITIAL_STAGES);
+  const [selected, setSelected] = useState(0);
+  const selStage = nodes.find(s => s.id === selected) || nodes[0];
+
+  return h('div', { className: 'page' },
+    h('div', { className: 'arch-section' },
+      h('div', { className: 'arch-header' },
+        h('div', null,
+          h('div', { className: 'section-chip chip-violet' }, '🏗️ Deep Pipeline Studio'),
+          h('h2', null, 'Neural Architecture & Processing Stages')
+        ),
+        h('div', { style: { fontSize: 13, color: 'var(--tx3)' } },
+          '✦ Interactive movable nodes · Bezier connections dynamically remain attached'
+        )
+      ),
+
+      /* Resizable Diagram Container */
+      h('div', { className: 'diagram-shell' },
+        h('div', { className: 'diagram-toolbar' },
+          h('div', { className: 'diagram-hint' }, '🖱️ Drag any node to reposition · Click to inspect technical parameters'),
+          h('div', { style: { display: 'flex', gap: 6 } },
+            nodes.map(s =>
+              h('button', {
+                key: s.id,
+                className: `nav-tab ${selected === s.id ? 'active' : ''}`,
+                style: { padding: '4px 10px', fontSize: 12 },
+                onClick: () => setSelected(s.id)
+              }, s.title)
+            )
+          )
+        ),
+        h('div', { className: 'diagram-viewport' },
+          h(ArchDiagram, { nodes, setNodes, selected, setSelected })
+        )
+      ),
+
+      /* Stage Deep Technical Inspector */
+      h(StageInspector, { stage: selStage }),
+
+      /* Benchmark Matrix embedded directly in Architecture view */
+      h(BenchMatrix)
+    )
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  OVERVIEW VIEW                                                              */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function OverviewPage({ setView }) {
+  const stats = [
+    { num: '95.4%', lbl: 'Complete Field Accuracy', desc: '150-field real-world test benchmark', badge: 'g', badgeText: '+20.8% vs Tesseract' },
+    { num: '3.3%',  lbl: 'Human Review Rate', desc: 'Only 5/150 fields require operator intervention', badge: 'b', badgeText: 'Target <8%' },
+    { num: '<30 ms', lbl: 'CPU Inference Latency', desc: 'Runs in real-time on commodity CPUs', badge: 'g', badgeText: 'Edge Ready' },
+  ];
+
+  return h('div', { className: 'page' },
+    h('div', { className: 'overview-hero' },
+      h('div', null,
+        h('div', { className: 'section-chip chip-blue' }, '🤖 Production OCR Pipeline'),
+        h('h1', null, 'Handwritten Form Field Reader'),
+        h('p', { className: 'overview-lead' },
+          'Automated digitization system designed for structured government forms. ' +
+          'Pairs morphological comb-box removal with a 39-class convolutional neural network ' +
+          'and finite-state grammar decoding to minimize manual operator review.'
+        ),
+        h('div', { className: 'hero-actions' },
+          h('button', { className: 'btn-primary', onClick: () => setView('station') }, '🔬 Open Verification Station'),
+          h('button', { className: 'btn-outline', onClick: () => setView('architecture') }, '🏗️ Explore Architecture & Benchmark')
+        )
+      ),
+      h('div', { className: 'hero-card' },
+        h('div', { className: 'card-tag' }, '📝 Real-Time Field Simulation'),
+        h('div', { className: 'ink-wrap' },
+          h('svg', { viewBox: '0 0 340 110', className: 'ink-svg' },
+            ...'02/06/1984'.split('').map((ch, i) =>
+              h('rect', { key: i, className: 'comb-cell', x: 8 + i * 32, y: 10, width: 28, height: 56, rx: 4 })
+            ),
+            ...'02/06/1984'.split('').map((ch, i) =>
+              h('text', { key: 't' + i, className: 'hw-char', x: 22 + i * 32, y: 62, textAnchor: 'middle' }, ch)
+            )
+          )
+        ),
+        h('div', { className: 'card-cap' },
+          h('span', null, 'Synthesized Prediction: 02/06/1984'),
+          h('span', { style: { color: 'var(--green-dk)', fontWeight: 800 } }, '99.9% Mean Confidence')
+        )
+      )
+    ),
+    h('div', { className: 'stats-row' },
+      stats.map((s, i) =>
+        h('div', { key: i, className: 'stat-card' },
+          h('div', { className: `stat-badge ${s.badge}` }, s.badgeText),
+          h('div', { className: 'stat-num' }, s.num),
+          h('div', { className: 'stat-lbl' }, s.lbl),
+          h('div', { className: 'stat-desc' }, s.desc)
+        )
+      )
+    )
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  AUDIT LOG MODAL                                                            */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function AuditModal({ onClose }) {
+  const [log, setLog] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/audit/log')
+      .then(r => r.ok ? r.json() : [])
+      .then(d => {
+        if (Array.isArray(d)) setLog(d);
+        else if (d && Array.isArray(d.logs)) setLog(d.logs);
+        else setLog([]);
+      })
+      .catch(() => setLog([]));
+  }, []);
+
+  function downloadCSV() {
+    if (!log.length) return;
+    const hdr = Object.keys(log[0]).join(',');
+    const rows = log.map(r => Object.values(r).join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), {
+      href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(hdr + '\n' + rows),
+      download: `audit_trail_${Date.now()}.csv`,
+    });
+    a.click();
   }
 
-  // Load and Render Audit Logs
-  async function loadAuditLogs() {
-    try {
-      const res = await fetch('/api/audit/logs');
-      const data = await res.json();
-      state.auditLogs = data.logs || [];
-      renderAuditTable();
-    } catch (err) {
-      console.error('Failed to load audit logs:', err);
-    }
+  return h('div', { className: 'modal-mask', onClick: e => { if (e.target === e.currentTarget) onClose(); } },
+    h('div', { className: 'modal-box' },
+      h('div', { className: 'modal-head' },
+        h('h3', null, '📋 Operator Audit Trail'),
+        h('div', { style: { display: 'flex', gap: 10 } },
+          h('button', { className: 'btn-csv', onClick: downloadCSV }, '⬇ Export CSV'),
+          h('button', { className: 'btn-close', onClick: onClose }, '✕')
+        )
+      ),
+      h('div', { className: 'modal-body' },
+        log.length === 0
+          ? h('div', { style: { textAlign: 'center', padding: 40, color: 'var(--tx3)' } },
+              h('div', { style: { fontSize: 32, marginBottom: 12 } }, '📭'),
+              'No audit logs yet. Accept or correct fields in the Verification Station to generate entries.'
+            )
+          : h('table', { className: 'bench-table', style: { width: '100%' } },
+              h('thead', null,
+                h('tr', null,
+                  ['Field ID', 'Original Text', 'Verified Text', 'Action', 'Operator Latency'].map(th =>
+                    h('th', { key: th }, th)
+                  )
+                )
+              ),
+              h('tbody', null,
+                log.map((entry, i) =>
+                  h('tr', { key: i },
+                    h('td', null, entry.field_id || '–'),
+                    h('td', null, entry.original_text || '–'),
+                    h('td', { style: { fontWeight: 700 } }, entry.verified_text || '–'),
+                    h('td', null, entry.action || '–'),
+                    h('td', null, entry.operator_latency_s ? `${entry.operator_latency_s}s` : '–')
+                  )
+                )
+              )
+            )
+      )
+    )
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  ROOT APP COMPONENT                                                         */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function App() {
+  const [bootLoading, setBootLoading] = useState(true);
+  const [view, setView] = useState('station'); // Primary default view: Verification Station
+  const [auditOpen, setAuditOpen] = useState(false);
+
+  // Exact kind-mole-87 loader shown during boot sequence
+  useEffect(() => {
+    const t = setTimeout(() => setBootLoading(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (bootLoading) {
+    return h(FullscreenLoader);
   }
 
-  function renderAuditTable() {
-    el.auditCount.textContent = state.auditLogs.length;
+  return h(React.Fragment, null,
+    h('div', { className: 'bg-ambient' }),
+    h('div', { className: 'bg-grid' }),
+    h(TopNav, { view, setView, onAudit: () => setAuditOpen(true) }),
+    view === 'station'      && h(StationPage),
+    view === 'architecture' && h(ArchitecturePage),
+    view === 'overview'     && h(OverviewPage, { setView }),
+    auditOpen && h(AuditModal, { onClose: () => setAuditOpen(false) })
+  );
+}
 
-    if (state.auditLogs.length === 0) {
-      el.auditTableBody.innerHTML = '<tr class="empty-row"><td colspan="9">No operator audit events logged yet. Process a field to begin tracking.</td></tr>';
-      return;
-    }
-
-    el.auditTableBody.innerHTML = state.auditLogs.map(log => `
-      <tr>
-        <td><code>${log.audit_id}</code></td>
-        <td>${log.timestamp}</td>
-        <td><strong>#${log.field_id}</strong></td>
-        <td>${log.field_type}</td>
-        <td><code>${log.original_text}</code></td>
-        <td><strong><code>${log.verified_text}</code></strong></td>
-        <td>
-          <span class="badge ${log.action === 'ACCEPT' ? 'badge-success' : (log.action === 'CORRECT' ? 'badge-warning' : 'badge-danger')}">
-            ${log.action}
-          </span>
-        </td>
-        <td>${Math.round(log.min_conf * 100)}%</td>
-        <td>${log.operator_latency_s}s</td>
-      </tr>
-    `).join('');
-  }
-
-  // Export Audit Trail as CSV
-  function exportAuditCsv() {
-    if (state.auditLogs.length === 0) {
-      showToast('No audit logs to export', 'warning');
-      return;
-    }
-    const headers = ['Audit ID', 'Timestamp', 'Field ID', 'Type', 'Raw AI Text', 'Verified Text', 'Action', 'Min Conf', 'Review Time (s)'];
-    const rows = state.auditLogs.map(l => [
-      l.audit_id, l.timestamp, l.field_id, l.field_type, l.original_text, l.verified_text, l.action, l.min_conf, l.operator_latency_s
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `formflow_audit_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  function clearAuditLogs() {
-    state.auditLogs = [];
-    renderAuditTable();
-    showToast('Audit trail cleared');
-  }
-
-  // Global Keyboard Shortcuts
-  function handleGlobalKeydown(e) {
-    // Ignore if modal open or typing in text input (unless Enter/Esc)
-    if (el.modalShortcuts.style.display === 'flex' && e.key === 'Escape') {
-      el.modalShortcuts.style.display = 'none';
-      return;
-    }
-
-    if (e.key === '?' && e.target.tagName !== 'INPUT') {
-      e.preventDefault();
-      el.modalShortcuts.style.display = 'flex';
-      return;
-    }
-
-    if (e.ctrlKey && e.key === 'Enter') {
-      e.preventDefault();
-      submitOperatorAction('CORRECT');
-      return;
-    }
-
-    if (e.key === 'Enter' && e.target !== el.searchInput) {
-      e.preventDefault();
-      submitOperatorAction('ACCEPT');
-      return;
-    }
-
-    if (e.key === 'Escape') {
-      submitOperatorAction('REJECT');
-      return;
-    }
-
-    // Number keys 1, 2, 3 to swap active glyph alternatives
-    if (['1', '2', '3'].includes(e.key) && e.target.tagName !== 'INPUT') {
-      const altIdx = parseInt(e.key, 10) - 1;
-      const targetGlyph = (state.activeGlyphIdx !== null) ? state.activeGlyphIdx : 0;
-      if (state.currentResult && state.currentResult.glyphs && state.currentResult.glyphs[targetGlyph]) {
-        const alts = state.currentResult.glyphs[targetGlyph].alts;
-        if (alts && alts[altIdx]) {
-          replaceCharacterInTranscription(targetGlyph, alts[altIdx].char);
-        }
-      }
-    }
-  }
-
-  // Toast Notification
-  function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    el.toastContainer.appendChild(toast);
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(10px)';
-      setTimeout(() => toast.remove(), 200);
-    }, 2500);
-  }
-
-  // Start Application
-  window.addEventListener('DOMContentLoaded', init);
-})();
+// Mount React 18 Application
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));

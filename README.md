@@ -104,7 +104,18 @@ python evaluate_field_reader.py
 ```
 *Evaluates all 3 pipeline tiers across the 150 benchmark test fields and generates `models/evaluation_report.json`.*
 
-### 4. Launch Interactive Web Interface
+### 4. Launch Enterprise Verification Web Station (Primary)
+Ensure local LLM (Ollama) is active if using Tier-2 semantic post-correction:
+```bash
+# Terminal 1 (Optional for Tier-2 local LLM):
+ollama serve
+
+# Terminal 2:
+python server.py
+```
+*Opens the modern, glassmorphic verification station at `http://127.0.0.1:8000` with Universal Adaptive OCR (TrOCR + Tri-Engine), 4-stage progressive typewriter loader, and automated 2-tier refinement.*
+
+### 5. Launch Standalone Gradio Interface (Alternative Demo)
 ```bash
 python ocr_standalone_app.py
 ```
