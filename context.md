@@ -1,4 +1,4 @@
-# Track B: Handwritten Form Field Reader — Project Context
+# Track B: Handwritten Form Field Reader â Project Context
 
 ## 1. Executive Summary & Problem Statement (JIG26_16 Track B)
 - **Problem Statement:** Government and administrative departments process vast volumes of structured forms containing critical handwritten entries: **Dates** (`DD/MM/YYYY`, `DD-MM-YYYY`), **Postal PIN Codes** (`\d{6}`), and **Alphanumeric Short Codes** (`[A-Z]{2,3}-\d{4}`). Digitization must be automated at high throughput while routing ambiguous or low-confidence fields to human operators for rapid verification.
@@ -27,9 +27,9 @@ Evaluated across **150 test fields** (Dates, Postal PINs, Alphanumeric Short Cod
 
 | Architecture / Model Mode | Character Accuracy | Character Error Rate (CER) | Complete-Field Exact Match | Human Review Routing Rate | Operational Role |
 |---|:---:|:---:|:---:|:---:|---|
-| **🔬 Baseline: Raw Character CNN** | `93.42%` | 6.58% | `76.00%` (114 / 150) | 24.00% | Track B Rubric Deliverable |
-| **⚡ Tier 1: CNN + Grammar/FSM Decoder** | `96.84%` | 3.16% | `93.33%` (140 / 150) | **3.30%** | Structural & Calendar Constraint Enforcement |
-| **🚀 Tier 2: SOTA Tri-Engine Pipeline** | **`96.92%`** | **3.08%** | **`93.33%` (140 / 150)** | **`3.30%`** | Morphology Filtering + FSM + Lexical Lattice |
+| **ð¬ Baseline: Raw Character CNN** | `93.42%` | 6.58% | `76.00%` (114 / 150) | 24.00% | Track B Rubric Deliverable |
+| **â¡ Tier 1: CNN + Grammar/FSM Decoder** | `96.84%` | 3.16% | `93.33%` (140 / 150) | **3.30%** | Structural & Calendar Constraint Enforcement |
+| **ð Tier 2: SOTA Tri-Engine Pipeline** | **`96.92%`** | **3.08%** | **`93.33%` (140 / 150)** | **`3.30%`** | Morphology Filtering + FSM + Lexical Lattice |
 
 ---
 
@@ -46,7 +46,7 @@ $$\text{Field Confidence: } C(F) = \min_{i=1 \dots N} P(c_i)$$
 | **$\theta = 0.95$ (Ultra-Strict)** | **`96.7%`** (145 / 150) | 94.5% | **`3.3%`** (5 fields) | High-assurance automated ingest |
 
 ### Operational Impact:
-- **Human Review Load Slashed:** Reduced from **`16.00%`** (24 / 150) to **`3.30%`** (5 / 150) — a **4.8× reduction** in manual review overhead.
+- **Human Review Load Slashed:** Reduced from **`16.00%`** (24 / 150) to **`3.30%`** (5 / 150) â a **4.8Ã reduction** in manual review overhead.
 - **Auto-Accept Volume:** $145$ out of $150$ records ingested instantly with zero human touch.
 - **1-Click Operator Latency:** Operator verifies highlighted character with pre-filled alternative chips in **`< 2 seconds / form`**.
 
@@ -89,14 +89,14 @@ $$\text{Field Confidence: } C(F) = \min_{i=1 \dots N} P(c_i)$$
   - Ink ripple dispersion pulse on mouse clicks.
   - Toggleable via the navbar ink button.
 - **Floating Presets & Ingestion Bar:**
-  - Instant 1-click test chips: `📅 Date (Comb Box)`, `✍️ Date (Freeform)`, `📮 Postal PIN`, `🏷️ Short Code`.
+  - Instant 1-click test chips: `ð Date (Comb Box)`, `âï¸ Date (Freeform)`, `ð® Postal PIN`, `ð·ï¸ Short Code`.
   - Jump-to dropdown for accessing any of the 150 standardized benchmark fields without DOM grid clutter.
   - Drag & drop / Clipboard paste (`Ctrl+V`) for custom field crops.
-- **Interactive Character Glyph Ribbon:** Displays isolated 32×32 character patches with confidence badges and clickable top-3 alternative candidate chips that immediately swap characters into the transcription field.
+- **Interactive Character Glyph Ribbon:** Displays isolated 32Ã32 character patches with confidence badges and clickable top-3 alternative candidate chips that immediately swap characters into the transcription field.
 - **Guidance Modal (Navbar):** Simple, 4-step beginner-friendly visual guide explaining Field Ingestion, Morphological Segmentation, Tri-Engine Recognition, and Confidence Gating.
 - **Architecture Modal (Navbar):** Features high-resolution isometric architecture visuals:
   1. `architecture_pipeline.jpg`: End-to-End AI Handwritten Form Field Reader Pipeline.
-  2. `architecture_cnn.jpg`: Deep CNN 32×32 Glyph Classification & Feature Heatmap schematics.
+  2. `architecture_cnn.jpg`: Deep CNN 32Ã32 Glyph Classification & Feature Heatmap schematics.
 - **Compliance Audit Trail:** Accessible via navbar with CSV export and real-time operator latency tracking.
 
 ---
@@ -105,42 +105,42 @@ $$\text{Field Confidence: } C(F) = \min_{i=1 \dots N} P(c_i)$$
 
 ```
 C:\Users\SRIRAM\Documents\GitHub\OCR features for Hackathon\
-├── data\
-│   └── form_fields\
-│       ├── metadata.csv          # Ground-truth labels & metadata for 150 test fields
-│       └── field_*.png           # Cropped form field images (Dates, PINs, Codes)
-├── models\
-│   ├── field_cnn.pth             # Trained CNN model weights (99.95% val accuracy)
-│   ├── field_cnn_history.json    # Loss & accuracy convergence curves
-│   ├── evaluation_report.json    # Official benchmark evaluation report
-│   └── audit_log.json            # Real-time operator audit history
-├── src\
-│   ├── __init__.py               # Source package initializer
-│   └── field_reader\
-│       ├── __init__.py           # Field reader package initializer
-│       ├── dataset.py            # Field generator & PyTorch CharacterDataset
-│       ├── decoder.py            # FormFieldGrammarDecoder (Century & Lexicon FSM)
-│       ├── model.py              # FieldCharacterCNN architecture & predict methods
-│       ├── pipeline.py           # Unified multi-mode FormReaderPipeline
-│       ├── segmenter.py          # Morphological segmenter & 32x32 glyph normalizer
-│       └── semantic_verifier.py  # SemanticFieldVerifier (Lattice repair)
-├── web\
-│   ├── index.html                # Modern floating UI with Guidance & Architecture modals
-│   ├── css\
-│   │   └── style.css             # Glassmorphism, floating shadows, handwriting pen cursor
-│   ├── js\
-│   │   └── app.js                # SOTA Tri-Engine, ink particle trails, 1-click glyph swapping
-│   └── images\
-│       ├── architecture_pipeline.jpg # High-tech End-to-End Pipeline Blueprint
-│       └── architecture_cnn.jpg      # Deep CNN Glyph & Feature Map Schematics
-├── context.md                    # Single source of truth project documentation
-├── evaluate_field_reader.py      # Comparative benchmark leaderboard runner
-├── server.py                     # High-performance FastAPI server (Port 8000)
-├── ocr_standalone_app.py         # Dedicated Gradio Operator Web App (Port 7861)
-├── train_field_cnn.py            # Character CNN training script
-├── requirements.txt              # Lean project dependencies
-├── README.md                     # Clean project documentation & overview
-└── .gitignore                    # Git ignore file
+âââ data\
+â   âââ form_fields\
+â       âââ metadata.csv          # Ground-truth labels & metadata for 150 test fields
+â       âââ field_*.png           # Cropped form field images (Dates, PINs, Codes)
+âââ models\
+â   âââ field_cnn.pth             # Trained CNN model weights (99.95% val accuracy)
+â   âââ field_cnn_history.json    # Loss & accuracy convergence curves
+â   âââ evaluation_report.json    # Official benchmark evaluation report
+â   âââ audit_log.json            # Real-time operator audit history
+âââ src\
+â   âââ __init__.py               # Source package initializer
+â   âââ field_reader\
+â       âââ __init__.py           # Field reader package initializer
+â       âââ dataset.py            # Field generator & PyTorch CharacterDataset
+â       âââ decoder.py            # FormFieldGrammarDecoder (Century & Lexicon FSM)
+â       âââ model.py              # FieldCharacterCNN architecture & predict methods
+â       âââ pipeline.py           # Unified multi-mode FormReaderPipeline
+â       âââ segmenter.py          # Morphological segmenter & 32x32 glyph normalizer
+â       âââ semantic_verifier.py  # SemanticFieldVerifier (Lattice repair)
+âââ web\
+â   âââ index.html                # Modern floating UI with Guidance & Architecture modals
+â   âââ css\
+â   â   âââ style.css             # Glassmorphism, floating shadows, handwriting pen cursor
+â   âââ js\
+â   â   âââ app.js                # SOTA Tri-Engine, ink particle trails, 1-click glyph swapping
+â   âââ images\
+â       âââ architecture_pipeline.jpg # High-tech End-to-End Pipeline Blueprint
+â       âââ architecture_cnn.jpg      # Deep CNN Glyph & Feature Map Schematics
+âââ context.md                    # Single source of truth project documentation
+âââ evaluate_field_reader.py      # Comparative benchmark leaderboard runner
+âââ server.py                     # High-performance FastAPI server (Port 8000)
+âââ ocr_standalone_app.py         # Dedicated Gradio Operator Web App (Port 7861)
+âââ train_field_cnn.py            # Character CNN training script
+âââ requirements.txt              # Lean project dependencies
+âââ README.md                     # Clean project documentation & overview
+âââ .gitignore                    # Git ignore file
 ```
 
 ---
@@ -182,7 +182,7 @@ C:\Users\SRIRAM\Documents\GitHub\OCR features for Hackathon\
 
 ---
 
-## 10. FormFlow AI Studio & Verification Station — React Architecture & Light Theme Blueprint
+## 10. FormFlow AI Studio & Verification Station â React Architecture & Light Theme Blueprint
 
 ### 10.1 React Architecture Overview
 - **Technology:** Modular React 18 Architecture (`web/index.html` + `web/js/components/` or bundle-free reactive modern React component tree with clean state management).
@@ -200,7 +200,7 @@ C:\Users\SRIRAM\Documents\GitHub\OCR features for Hackathon\
   4. **Benchmark Leaderboard & Error Analysis:** Comprehensive comparative matrix of Baseline CNN vs Tier 1 FSM vs SOTA Tri-Engine.
 
 ### 10.2 Ultra-Premium Light Theme Design System
-- **Theme Concept:** "Porcelain Studio & Cyber-Cobalt" — clean, airy, high-contrast, professional enterprise aesthetic:
+- **Theme Concept:** "Porcelain Studio & Cyber-Cobalt" â clean, airy, high-contrast, professional enterprise aesthetic:
   - Surface Primary: `#f8fafc` (Ultra-light porcelain) with subtle radial sky & emerald ambient glows (`#e0f2fe`, `#ecfdf5`).
   - Card Glass Surface: `rgba(255, 255, 255, 0.88)` with `backdrop-filter: blur(20px)` and subtle slate borders (`rgba(226, 232, 240, 0.95)`).
   - Ambient Soft Shadows: `box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 20px 40px -15px rgba(15, 23, 42, 0.06)`.
@@ -237,7 +237,7 @@ C:\Users\SRIRAM\Documents\GitHub\OCR features for Hackathon\
 
 ---
 
-## 11. UI Redesign � Full Implementation (Oct 2026)
+## 11. UI Redesign  Full Implementation (Oct 2026)
 
 | Change | Status |
 |--------|--------|
@@ -246,11 +246,11 @@ C:\Users\SRIRAM\Documents\GitHub\OCR features for Hackathon\
 | Clipboard paste upload (onPaste) | Done |
 | macOS SF Pro system font stack | Done |
 | JetBrains Mono (code) + Caveat (handwriting) | Done |
-| No gradient font colors � standard Apple accents | Done |
+| No gradient font colors  standard Apple accents | Done |
 | Nav: pill tabs (Overview / Live Station / Architecture) | Done |
 | Audit Log modal via nav button | Done |
 | Benchmark Matrix inside Architecture view | Done |
-| Draggable SVG nodes � edges always connected | Done |
+| Draggable SVG nodes  edges always connected | Done |
 | 5-dot morphing loader (kind-mole-87 style) | Done |
 | All panels resizable (resize:both) | Done |
 | Per-stage inspector: prob bars / FSM diff / threshold pills | Done |
@@ -296,35 +296,35 @@ Server running: http://127.0.0.1:8000 (daemon task-62)
 ### 13.2 Live System Integration
 - **Backend Service:** `server.py` on port 8000 routes `/api/predict` natively through `TrOCRTokenToInkAligner`. Supports arbitrary image base64 uploads and the 150 benchmark test catalog.
 - **Frontend Station (`web/`):**
-  - Displays `annotated_image_b64` with interactive "👁️ BBoxes: ON / 🖼️ Raw Ink" toggle.
+  - Displays `annotated_image_b64` with interactive "ðï¸ BBoxes: ON / ð¼ï¸ Raw Ink" toggle.
   - Renders 32x32 crop patch ribbon with 1-click candidate replacement.
   - Displays architecture tags and real-time GPU inference telemetry.
 
 
 ### 13.3 Direct Clipboard Workflows (Copy & Paste)
-- **Direct Paste from Clipboard:** Added an explicit `📋 Paste from Clipboard` button to the primary Station toolbar. Uses `navigator.clipboard.read()` to pull raw image/screenshot bytes directly from the OS clipboard into the TrOCR pipeline, alongside standard global `Ctrl+V` keydown listeners and drag-and-drop.
-- **1-Click Text Copy to Clipboard:** Added a `📋 Copy Text` button directly above the Verified Transcription field. Uses `navigator.clipboard.writeText(txn)` with automatic fallback, providing instant `✓ Copied!` visual feedback for rapid operator copy-pasting.
+- **Direct Paste from Clipboard:** Added an explicit `ð Paste from Clipboard` button to the primary Station toolbar. Uses `navigator.clipboard.read()` to pull raw image/screenshot bytes directly from the OS clipboard into the TrOCR pipeline, alongside standard global `Ctrl+V` keydown listeners and drag-and-drop.
+- **1-Click Text Copy to Clipboard:** Added a `ð Copy Text` button directly above the Verified Transcription field. Uses `navigator.clipboard.writeText(txn)` with automatic fallback, providing instant `â Copied!` visual feedback for rapid operator copy-pasting.
 
 ---
 
-## LATEST UPDATE � Integrated Handwriting Analysis (Dysgraphia Bridge)
+## LATEST UPDATE  Integrated Handwriting Analysis (Dysgraphia Bridge)
 
-### Completed: Cross-Repo Bridge � TrOCR + BHK Dysgraphia Feature Extraction
+### Completed: Cross-Repo Bridge  TrOCR + BHK Dysgraphia Feature Extraction
 
 **Date:** 2026-10-02
 
 #### What Was Built
-1. **src/field_reader/handwriting_analyzer.py** � New bridge module that:
+1. **src/field_reader/handwriting_analyzer.py**  New bridge module that:
    - Uses importlib.util to safely load Dysgraphia-Detection repo modules without sys.path conflicts
    - Runs TrOCR inference via get_trocr_aligner()
    - Runs BHK feature extraction via extract_bhk_features(binary_mask) from Dysgraphia repo
    - Performs rule-based dysgraphia risk classification (Low / Moderate / High) from 9 BHK signals
    - Returns all TrOCR fields + hk_features, dysgraphia_risk, nalysis_mode, 	otal_latency_ms
 
-2. **server.py** � New endpoint /api/analyze_handwriting (POST, same PredictRequest schema)
+2. **server.py**  New endpoint /api/analyze_handwriting (POST, same PredictRequest schema)
    - Returns full analysis: transcription + token alignment + BHK diagnostics
 
-3. **	est_integrated_pipeline.py** � Rewritten to use HandwritingAnalyzer cleanly
+3. **	est_integrated_pipeline.py**  Rewritten to use HandwritingAnalyzer cleanly
 
 #### Validated Results
 - On ENG_CAND_058.jpg: Text "Farmersburg ,", Mean OCR Conf 44.1%, **Risk: High (0.655)**
@@ -332,13 +332,13 @@ Server running: http://127.0.0.1:8000 (daemon task-62)
 - Total latency: ~533ms (CUDA)
 
 #### BHK Features Extracted (22 indicators)
-- aseline_drift_slope � BHK #3 (waviness)
-- letter_size_cv � BHK #8 (inconsistent sizing)  
-- inter_component_gap_cv � BHK #4 (spacing irregularity)
-- letter_collision_ratio � BHK #7 (overlaps)
-- stroke_tremor_high_freq � motor tremor
-- slant_angle_std � stroke slant inconsistency
-- spatial_dysgraphia_score, motor_dysgraphia_score � composite clinical scores
+- aseline_drift_slope  BHK #3 (waviness)
+- letter_size_cv  BHK #8 (inconsistent sizing)  
+- inter_component_gap_cv  BHK #4 (spacing irregularity)
+- letter_collision_ratio  BHK #7 (overlaps)
+- stroke_tremor_high_freq  motor tremor
+- slant_angle_std  stroke slant inconsistency
+- spatial_dysgraphia_score, motor_dysgraphia_score  composite clinical scores
 - cursive_index, is_cursive, line_count, etc.
 
 #### Risk Flags Generated
@@ -369,16 +369,16 @@ preprocess_handwriting_image()  [Dysgraphia repo]
 `
 
 #### Server Endpoints
-- POST /api/predict � TrOCR only (fast, form fields)
-- POST /api/analyze_handwriting � Full analysis (TrOCR + BHK dysgraphia)
-- GET /api/benchmark/fields � Benchmark list
-- GET /api/stats � System stats
-- POST /api/audit/log � Audit trail
+- POST /api/predict  TrOCR only (fast, form fields)
+- POST /api/analyze_handwriting  Full analysis (TrOCR + BHK dysgraphia)
+- GET /api/benchmark/fields  Benchmark list
+- GET /api/stats  System stats
+- POST /api/audit/log  Audit trail
 
 
 ---
 
-## MULTI-MODEL SUITE UPDATE � TrOCR + IAM CRNN Weights + BHK Biomechanical Diagnostics
+## MULTI-MODEL SUITE UPDATE  TrOCR + IAM CRNN Weights + BHK Biomechanical Diagnostics
 
 ### Completed: IAM Dataset Checkpoint Integration & Unified Architecture
 
@@ -545,7 +545,8 @@ The legacy CRNN (CNN + BiLSTM + CTC) OCR engine has been **fully replaced** with
   - Automated service health & model availability detection with graceful fallback.
   - Strict JSON schema generation with low temperature (.1$) for zero hallucination.
   - Contextual error repair: resolves visual ambiguities, century clamping, calendar consistency, and split handwriting tokens.
-  - Produces structured output: corrected_text, easoning, and latency_ms.
+  - Produces structured output: corrected_text, 
+easoning, and latency_ms.
 - **Performance:** 900ms - 1400ms on RTX 4060 GPU.
 
 ### Backend API Integration (server.py)
@@ -576,7 +577,7 @@ The legacy CRNN (CNN + BiLSTM + CTC) OCR engine has been **fully replaced** with
      - While isProcessing is active: A dedicated 	ranscription-loading-state with TypewriterLoader and a live 'Neural Inference & Lexicon Validation In Progress' status pill is rendered.
      - Verified transcription controls and actions are rendered **only** when !isProcessing && prediction is fully resolved.
   3. **Left-Pane Overlay Optimization:**
-     - Replaced the duplicate typewriter loader on the left canvas with a subtle radar scanning backdrop (Scanning Visual Ink & Spatial Geometry�) to focus user attention on the primary inference progress.
+     - Replaced the duplicate typewriter loader on the left canvas with a subtle radar scanning backdrop (Scanning Visual Ink & Spatial Geometry) to focus user attention on the primary inference progress.
 
 
 ---
@@ -613,11 +614,11 @@ The legacy CRNN (CNN + BiLSTM + CTC) OCR engine has been **fully replaced** with
    - Displays the exact 1-sentence reasoning provided by Qwen 2.5 and stage-by-stage latency telemetry.
 5. **Flexible Upload Format Selector:**
    - Added interactive `Format:` dropdown in the top selector row:
-     - `✨ Auto-Detect (Handwriting)` (Default for uploads)
-     - `📅 Date (DD/MM/YYYY)`
-     - `📮 Postal PIN (6-digit)`
-     - `🏷️ Alphanumeric Code`
-     - `🗂️ Rigid Comb-Box Grid`
+     - `â¨ Auto-Detect (Handwriting)` (Default for uploads)
+     - `ð Date (DD/MM/YYYY)`
+     - `ð® Postal PIN (6-digit)`
+     - `ð·ï¸ Alphanumeric Code`
+     - `ðï¸ Rigid Comb-Box Grid`
 
 ### 17.3 Live Benchmark & Verification Results
 
@@ -778,3 +779,67 @@ Documented the complete mathematical, heuristic, deep learning, and linguistic a
   - High ($C(F) \ge 0.85$): Auto-approved zero-touch commit.
   - Medium ($0.70 \le C(F) < 0.85$): Review recommended.
   - Low ($C(F) < 0.70$): Review required / flagged.
+
+
+## 23. Universal Dual-Mode Architecture: Form Fields with Physical Grids vs. Normal Handwriting (Oct 2026)
+
+### 23.1 Problem Statement & Architectural Need
+In practical real-world form processing, uploaded images arrive across three distinct structural categories:
+1. **Comb-Box Grid Form Fields:** Rigid boxed cells with explicit vertical divider lines (e.g., standard government/bank forms where each character is written in a box: dates, postal PIN codes, account numbers).
+2. **Freeform Form Fields:** Structured form fields written without physical boxes or dividers (e.g., freeform dates `02/06/1984` or PIN codes written on a plain line or underline).
+3. **Normal Handwritten Images:** Continuous unconstrained cursive handwriting, multi-line notes, sentences, and paragraphs.
+
+Previously, models optimized for continuous text (TrOCR) failed on comb-box grids by misreading vertical cell dividers as slashes/letters or distorting aspect ratios (e.g. producing nonsense like `displaystyle`), while single-character CNN segmenters failed on continuous cursive handwriting. Furthermore, if a user uploaded an image without explicitly specifying `is_comb_box=True` or `num_expected_cells`, comb grids fell through to unconstrained segmentation.
+
+### 23.2 Automated Morphological Grid Detection (`detect_grid_cells` in `src/field_reader/segmenter.py`)
+To eliminate manual configuration, an automated morphological grid detection algorithm was formulated and integrated:
+1. **Vertical Structuring Element Opening:**
+   $$K_v = \text{rect}(1, \max(8, \lfloor 0.35 \times H \rfloor))$$
+   Isolates vertical physical divider lines spanning at least 35% of the field height while filtering out character ascenders and descenders.
+2. **Column Projection Clustering:**
+   Extracts vertical line indices and clusters adjacent columns ($\le 3\text{px}$) into discrete divider centerlines.
+3. **Intra-Character Vertical Stroke Pruning:**
+   Removes spurious lines within character glyphs (e.g., vertical stems of digits '1' or '7') by discarding candidates with spacing $< 0.68 \times \text{median\_spacing}$.
+4. **Periodicity & Coverage Verification:**
+   - Coefficient of Variation of cell spacings:
+     $$\text{CV} = \frac{\sigma_{\text{spacing}}}{\mu_{\text{spacing}}} < 0.35$$
+   - Total grid span coverage:
+     $$\frac{x_{\text{last}} - x_{\text{first}}}{W} > 0.35$$
+5. **Benchmark Verification Performance:**
+   - **Grid vs. Non-Grid Classification Accuracy:** **`100.00%`** (150 / 150 test fields).
+   - **Exact Cell Count Detection Accuracy on Grids:** **`100.00%`** (73 / 73 grid fields).
+
+### 23.3 Intelligent Dual-Mode Routing Pipeline (`server.py`)
+When an image is submitted (via web verification station, clipboard paste, or `/api/predict`):
+1. **Step 1: Automatic Layout Analysis:**
+   Calls `detect_grid_cells(img_bgr)` to detect grid presence, cell count, and divider columns.
+2. **Step 2: Dual-Mode Routing Decision:**
+   - **Mode A (Physical Grid Detected / Comb-Box):**
+     - Slices each cell using detected divider lines `[x_i, x_{i+1}]`.
+     - Applies morphological border suppression to strip comb borders and box edges.
+     - Centroid-centers character ink into $32 \times 32$ normalized tensors.
+     - Infers schema: 10 cells $\rightarrow$ Date (`DD/MM/YYYY`), 6 cells $\rightarrow$ Postal PIN, 7-8 cells $\rightarrow$ Alphanumeric Code.
+     - Routes through SOTA Tri-Engine (`FieldCharacterCNN` + FSM Grammar + Semantic Lattice Verifier).
+   - **Mode B (Structured Field without Grid):**
+     - Freeform underline removal + connected components + smart box merging (rejoining split cursive strokes).
+     - Decoded with FSM Grammar and Lexicon beam search.
+   - **Mode C (Normal Unconstrained Handwriting / Sentences):**
+     - If `h > 180 and w > 200`: Multi-line TrOCR with horizontal projection valley slicing.
+     - Else: TrOCR with aspect-ratio preserving symmetrical whitespace padding ($pprox 3.5:1$).
+     - Spatial token-to-ink alignment via cross-attention attribution.
+3. **Step 3: 2-Tier Post-Processing:**
+   - **Tier 1 (Fast Lexicon):** Sub-5ms $O(1)$ delete lookup with OCR visual confusion penalty matrix.
+   - **Tier 2 (Neural Semantic Refiner):** Temperature $T=0.1$ structured JSON refinement.
+
+### 23.4 Verification Station UI Enhancements (`web/js/app.js`)
+- **Universal Format Selector:**
+  - `✨ Auto-Detect (Grid, Form Field, or Handwriting)` (Default zero-config mode)
+  - `🗂️ Form Field (With Grid / Comb-Box)`
+  - `📅 Form Field: Date (DD/MM/YYYY)`
+  - `📮 Form Field: Postal PIN (6-digit)`
+  - `🏷️ Form Field: Alphanumeric Code`
+  - `✍️ Normal Handwriting (Notes / Sentences)`
+- **Dynamic Layout & Grid Badges:**
+  - Shows `[🗂️ Grid: N cells]` when a grid is automatically detected.
+  - Shows `[✍️ Normal Handwriting]` when continuous cursive handwriting is processed.
+  - Shows `[📋 Form Field: Type]` when structured freeform fields are verified.

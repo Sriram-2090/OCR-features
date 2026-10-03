@@ -546,16 +546,17 @@ function StationPage() {
         h('label', { style: { fontSize: 12, fontWeight: 600, color: 'var(--tx3)' } }, 'Format:'),
         h('select', {
           className: 'field-select',
-          style: { minWidth: 150, padding: '4px 8px', fontSize: 12 },
+          style: { minWidth: 160, padding: '4px 8px', fontSize: 12 },
           value: uploadFieldType,
           disabled: isProcessing,
           onChange: e => setUploadFieldType(e.target.value),
         },
-          h('option', { value: 'Auto' }, '✨ Auto-Detect (Handwriting)'),
-          h('option', { value: 'Date' }, '📅 Date (DD/MM/YYYY)'),
-          h('option', { value: 'Pin' }, '📮 Postal PIN (6-digit)'),
-          h('option', { value: 'Code' }, '🏷️ Alphanumeric Code'),
-          h('option', { value: 'CombBox' }, '🗂️ Rigid Comb-Box Grid')
+          h('option', { value: 'Auto' }, '✨ Auto-Detect (Grid, Form Field, or Handwriting)'),
+          h('option', { value: 'CombBox' }, '🗂️ Form Field (With Grid / Comb-Box)'),
+          h('option', { value: 'Date' }, '📅 Form Field: Date (DD/MM/YYYY)'),
+          h('option', { value: 'Pin' }, '📮 Form Field: Postal PIN (6-digit)'),
+          h('option', { value: 'Code' }, '🏷️ Form Field: Alphanumeric Code'),
+          h('option', { value: 'Handwriting' }, '✍️ Normal Handwriting (Notes / Sentences)')
         )
       ),
       h('button', {
@@ -804,6 +805,42 @@ function StationPage() {
             h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 18 } },
               h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                 h('label', { className: 'txn-label', style: { margin: 0 } }, 'Verified Transcription'),
+                prediction && prediction.has_grid && h('span', {
+                  style: {
+                    fontSize: 10.5,
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    background: 'rgba(0, 113, 227, 0.12)',
+                    color: 'var(--brand)',
+                    fontWeight: 700,
+                    border: '1px solid rgba(0, 113, 227, 0.3)'
+                  },
+                  title: `Physical Grid Detected: ${prediction.detected_cells} cells automatically segmented`
+                }, `🗂️ Grid (${prediction.detected_cells} cells)`),
+                prediction && (prediction.layout_mode === 'normal_handwriting' || prediction.layout_mode === 'multiline_handwriting') && h('span', {
+                  style: {
+                    fontSize: 10.5,
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    background: 'rgba(168, 85, 247, 0.12)',
+                    color: '#9333ea',
+                    fontWeight: 700,
+                    border: '1px solid rgba(168, 85, 247, 0.3)'
+                  },
+                  title: 'Unconstrained cursive handwriting processed via Vision-Language Transformer'
+                }, '✍️ Normal Handwriting'),
+                prediction && !prediction.has_grid && prediction.layout_mode === 'structured_freeform' && h('span', {
+                  style: {
+                    fontSize: 10.5,
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    color: '#059669',
+                    fontWeight: 700,
+                    border: '1px solid rgba(16, 185, 129, 0.3)'
+                  },
+                  title: `Structured Form Field (${prediction.field_type})`
+                }, `📋 Form Field: ${prediction.field_type}`),
                 prediction && prediction.tier1_dict_corrected && h('span', {
                   style: {
                     fontSize: 10.5,

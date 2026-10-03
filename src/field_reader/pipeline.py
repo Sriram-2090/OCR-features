@@ -18,12 +18,12 @@ import torch
 
 try:
     from src.field_reader.model import FieldCharacterCNN, VOCAB_ALPHANUMERIC, VOCAB_DATE_NUMERIC
-    from src.field_reader.segmenter import segment_field_characters, normalize_glyph
+    from src.field_reader.segmenter import segment_field_characters, normalize_glyph, detect_grid_cells
     from src.field_reader.decoder import FormFieldGrammarDecoder
     from src.field_reader.semantic_verifier import SemanticFieldVerifier
 except ImportError:
     from model import FieldCharacterCNN, VOCAB_ALPHANUMERIC, VOCAB_DATE_NUMERIC
-    from segmenter import segment_field_characters, normalize_glyph
+    from segmenter import segment_field_characters, normalize_glyph, detect_grid_cells
     from decoder import FormFieldGrammarDecoder
     from semantic_verifier import SemanticFieldVerifier
 
@@ -58,7 +58,25 @@ class FormReaderPipeline:
         mode: 'raw_cnn', 'grammar_fsm', or 'tri_engine'
         """
         t0 = time.time()
+
+        # 0. Automated Grid Detection & Schema Resolution
+        auto_grid, auto_cells, _ = detect_grid_cells(field_bgr)
+        if auto_grid:
+            is_comb_box = True
+            if not expected_cells or expected_cells <= 0:
+                expected_cells = auto_cells
+
         f_type_lower = field_type.lower()
+        if f_type_lower in ["general", "auto", "unknown"] and auto_grid:
+            if auto_cells == 10:
+                field_type = "Date"
+                f_type_lower = "date"
+            elif auto_cells == 6:
+                field_type = "Pin"
+                f_type_lower = "pin"
+            elif auto_cells in [7, 8]:
+                field_type = "Code"
+                f_type_lower = "code"
 
         # Vocabulary restriction based on field type
         if "date" in f_type_lower:
@@ -72,7 +90,7 @@ class FormReaderPipeline:
             default_len = 8
         else:
             allowed_v = VOCAB_ALPHANUMERIC
-            default_len = 8
+            default_len = expected_cells or 8
 
         n_cells = expected_cells if (expected_cells and expected_cells > 0) else default_len
 

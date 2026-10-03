@@ -100,6 +100,88 @@ def normalize_glyph(
     return tensor, patch
 
 
+def detect_grid_cells(
+    field_bgr: np.ndarray
+) -> Tuple[bool, int, List[int]]:
+    """
+    Automated Morphological Grid Detection:
+    Detects physical comb-box grid borders and cell dividers in form field crops.
+
+    Algorithm:
+    1. Vertical structuring element opening (K_v = 1 x max(8, fh * 0.35)) to isolate divider lines.
+    2. Column projection clustering into discrete vertical divider centers.
+    3. Intra-character vertical stroke pruning (spacings < 0.68 * median_spacing).
+    4. Periodicity coefficient of variation test (CV = std / median < 0.35).
+    5. Grid span coverage test (> 35% of total field width).
+
+    Returns:
+        is_grid: bool (True if a periodic physical grid is present)
+        num_cells: int (Detected number of character boxes)
+        divider_lines: List[int] (x-coordinates of vertical dividers)
+    """
+    fh, fw = field_bgr.shape[:2]
+    if len(field_bgr.shape) == 3:
+        gray = cv2.cvtColor(field_bgr, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = field_bgr.copy()
+
+    median_val = float(np.median(gray))
+    if median_val > 120:
+        _, binary = cv2.threshold(gray, 210, 255, cv2.THRESH_BINARY_INV)
+    else:
+        _, binary = cv2.threshold(gray, 45, 255, cv2.THRESH_BINARY)
+
+    v_len = max(8, int(fh * 0.35))
+    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_len))
+    v_lines = cv2.morphologyEx(binary, cv2.MORPH_OPEN, v_kernel)
+    v_proj = np.sum(v_lines > 0, axis=0)
+
+    thresh = fh * 0.30
+    line_cols = np.where(v_proj >= thresh)[0]
+    if len(line_cols) < 2:
+        return False, 0, []
+
+    # Cluster adjacent column indices into discrete line centers
+    raw_lines = []
+    cluster = [line_cols[0]]
+    for col in line_cols[1:]:
+        if col - cluster[-1] <= 3:
+            cluster.append(col)
+        else:
+            raw_lines.append(int(round(np.mean(cluster))))
+            cluster = [col]
+    raw_lines.append(int(round(np.mean(cluster))))
+
+    if len(raw_lines) < 3:
+        return False, 0, []
+
+    spacings = np.diff(raw_lines)
+    median_spacing = float(np.median(spacings))
+    if median_spacing < 8:
+        return False, 0, []
+
+    # Clean spurious intra-character lines that are too close to neighbors (< 0.68 * median_spacing)
+    clean_lines = [raw_lines[0]]
+    for l in raw_lines[1:]:
+        if (l - clean_lines[-1]) < median_spacing * 0.68:
+            continue
+        clean_lines.append(l)
+
+    clean_spacings = np.diff(clean_lines)
+    if len(clean_spacings) < 2:
+        return False, 0, []
+
+    clean_med = float(np.median(clean_spacings))
+    std_spacing = float(np.std(clean_spacings))
+    cv_spacing = std_spacing / clean_med
+    grid_span = clean_lines[-1] - clean_lines[0]
+    span_ratio = grid_span / fw
+
+    is_grid = (cv_spacing < 0.35) and (span_ratio > 0.35) and (len(clean_lines) >= 3)
+    num_cells = len(clean_lines) - 1 if is_grid else 0
+    return is_grid, num_cells, clean_lines
+
+
 def segment_field_characters(
     field_bgr: np.ndarray,
     is_comb_box: bool = False,
@@ -108,13 +190,35 @@ def segment_field_characters(
     """
     Segments individual character glyphs from a cropped form field.
     Supports both comb-box grid fields and freeform handwritten fields.
+    Automatically detects comb-box grids if not explicitly specified.
     """
     fh, fw = field_bgr.shape[:2]
     gray = cv2.cvtColor(field_bgr, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, 210, 255, cv2.THRESH_BINARY_INV)
 
-    # Comb-box mode: Detect the actual grid boundaries or vertical dividers
-    if is_comb_box and num_expected_cells and num_expected_cells > 0:
+    # 1. Automated Grid Detection
+    auto_grid, auto_cells, auto_dividers = detect_grid_cells(field_bgr)
+    effective_comb_box = is_comb_box or auto_grid
+
+    # Comb-box mode: Slices each cell using detected grid dividers or periodic spacing
+    if effective_comb_box:
+        effective_cells = num_expected_cells if (num_expected_cells and num_expected_cells > 0) else auto_cells
+        if effective_cells <= 0:
+            effective_cells = 8
+
+        # If we have exact auto_dividers matching effective_cells + 1, use exact dividers
+        if auto_grid and len(auto_dividers) == effective_cells + 1:
+            glyphs = []
+            for i in range(effective_cells):
+                x1 = max(0, auto_dividers[i] + 2)
+                x2 = min(fw, auto_dividers[i + 1] - 2)
+                if x2 <= x1:
+                    x2 = min(fw, x1 + 10)
+                cell_crop = field_bgr[:, x1:x2]
+                glyphs.append((cell_crop, (x1, 0, x2 - x1, fh)))
+            return glyphs
+
+        # Fallback grid span calculation
         v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(10, int(fh * 0.4))))
         v_lines = cv2.morphologyEx(binary, cv2.MORPH_OPEN, v_kernel)
         v_proj = np.sum(v_lines, axis=0)
@@ -124,15 +228,15 @@ def segment_field_characters(
             grid_start = int(line_cols[0])
             grid_end = int(line_cols[-1])
         else:
-            pad_est = max(4, int((fw % num_expected_cells) / 2))
+            pad_est = max(4, int((fw % effective_cells) / 2))
             grid_start = pad_est
             grid_end = fw - pad_est
 
         grid_w = max(10, grid_end - grid_start)
-        cell_w = grid_w / num_expected_cells
+        cell_w = grid_w / effective_cells
 
         glyphs = []
-        for i in range(num_expected_cells):
+        for i in range(effective_cells):
             x1 = max(0, int(round(grid_start + i * cell_w)) + 2)
             x2 = min(fw, int(round(grid_start + (i + 1) * cell_w)) - 2)
             if x2 <= x1:

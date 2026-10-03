@@ -1,5 +1,5 @@
 """
-FormFlow OCR - Enterprise Form Field Verification Station
+OC&HCR - Enterprise Form Field Verification Station
 FastAPI High-Performance Backend (Track B)
 """
 
@@ -29,6 +29,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from src.field_reader.pipeline import FormReaderPipeline
+from src.field_reader.segmenter import detect_grid_cells
 from src.field_reader.trocr_aligner import get_trocr_aligner
 from src.field_reader.trocr_ocr_engine import TrOCROCRPipeline
 from src.field_reader.handwriting_analyzer import get_handwriting_analyzer
@@ -36,7 +37,7 @@ from src.field_reader.dictionary_engine import get_lexicon_engine
 from src.field_reader.llm_refiner import get_llm_refiner
 
 app = FastAPI(
-    title="FormFlow OCR Enterprise Station",
+    title="OC&HCR Enterprise Station",
     description="Offline Form Field Character Recognition, TrOCR Vision-Language Alignment & FSM Grammar Pipeline (Track B)",
     version="2.0.0"
 )
@@ -223,23 +224,51 @@ def predict_field(req: PredictRequest):
     orig_b64 = f"data:image/png;base64,{base64.b64encode(orig_buf).decode('utf-8')}"
 
     h, w = img_bgr.shape[:2]
+
+    # 1. Automated Physical Grid & Comb-Box Detection
+    auto_grid, auto_cells, auto_dividers = detect_grid_cells(img_bgr)
+    effective_comb_box = req.is_comb_box or auto_grid
+    effective_expected_cells = req.expected_cells or (auto_cells if auto_grid else None)
+
+    # 2. Field Type & Schema Resolution
     f_type_lower = (req.field_type or "general").lower()
-    is_structured = any(k in f_type_lower for k in ["date", "pin", "code"]) or req.is_comb_box
-    
+    effective_field_type = req.field_type
+
+    # If user explicitly selected normal handwriting, force unconstrained handwriting mode
+    if f_type_lower in ["handwriting", "notes", "sentences", "text"]:
+        effective_comb_box = False
+        is_structured = False
+        auto_grid = False
+        effective_field_type = "Handwriting"
+    elif auto_grid and f_type_lower in ["general", "auto", "unknown", "combbox", ""]:
+        # If grid is detected and user left format as Auto/General, infer type from cell count
+        if auto_cells == 10:
+            effective_field_type = "Date"
+            f_type_lower = "date"
+        elif auto_cells == 6:
+            effective_field_type = "Pin"
+            f_type_lower = "pin"
+        elif auto_cells in [7, 8]:
+            effective_field_type = "Code"
+            f_type_lower = "code"
+
+    is_structured = any(k in f_type_lower for k in ["date", "pin", "code"]) or effective_comb_box
+
     raw_ocr_text = ""
     mean_conf = 0.88
     min_conf = 0.80
     annotated_b64 = None
+    layout_mode = "grid" if effective_comb_box else ("structured_freeform" if is_structured else "normal_handwriting")
     t_ocr_start = time.perf_counter()
 
-    # Step A: If structured form field, run high-accuracy Tri-Engine
+    # Step A: Comb-Box Grid Field OR Explicit Structured Form Field -> Tri-Engine
     if is_structured and pipeline.model_loaded:
         try:
             res_tri = pipeline.process(
                 img_bgr,
-                field_type=req.field_type,
-                is_comb_box=req.is_comb_box,
-                expected_cells=req.expected_cells,
+                field_type=effective_field_type,
+                is_comb_box=effective_comb_box,
+                expected_cells=effective_expected_cells,
                 mode="tri_engine",
                 conf_threshold=req.conf_threshold
             )
@@ -249,8 +278,9 @@ def predict_field(req: PredictRequest):
         except Exception as e:
             print(f"[Universal Router] Tri-Engine error: {e}")
 
-    # Step B: Freeform handwriting, multi-line notes, or if Tri-Engine gave empty text
-    if not raw_ocr_text or not is_structured:
+    # Step B: Normal Handwritten Image (Freeform sentences, unconstrained cursive, notes)
+    # or fallback if Tri-Engine gave empty/insufficient text on non-grid images
+    if not raw_ocr_text or (not is_structured and not effective_comb_box):
         try:
             if h > 180 and w > 200:
                 # Multi-line document / note
@@ -258,15 +288,17 @@ def predict_field(req: PredictRequest):
                 raw_ocr_text = trocr_res.full_text
                 mean_conf = float(trocr_res.mean_confidence)
                 min_conf = max(0.5, mean_conf - 0.15)
+                layout_mode = "multiline_handwriting"
             else:
-                # Single-line or general handwriting crop
+                # Single-line or general handwriting crop with aspect ratio preservation
                 trocr_res = trocr_aligner.predict_and_align(
-                    img_bgr, field_type=req.field_type, conf_threshold=req.conf_threshold
+                    img_bgr, field_type=effective_field_type, conf_threshold=req.conf_threshold
                 )
                 raw_ocr_text = trocr_res.get("text", "")
                 mean_conf = float(trocr_res.get("mean_conf", 0.85))
                 min_conf = float(trocr_res.get("min_conf", 0.75))
                 annotated_b64 = trocr_res.get("annotated_image_b64")
+                layout_mode = "normal_handwriting"
         except Exception as e:
             print(f"[Universal Router] TrOCR error: {e}")
             if not raw_ocr_text:
@@ -279,7 +311,7 @@ def predict_field(req: PredictRequest):
     dict_text, dict_notes = lexicon_engine.correct_sentence(raw_ocr_text)
     t_lex_end = time.perf_counter()
 
-    # Step D: Tier 2 Local LLM Refiner (Qwen 2.5 7B via Ollama)
+    # Step D: Tier 2 Neural Semantic Refiner
     t_llm_start = time.perf_counter()
     llm_health = llm_refiner.check_health()
     llm_applied = False
@@ -289,7 +321,7 @@ def predict_field(req: PredictRequest):
     if llm_health.get("available"):
         llm_res = llm_refiner.refine_ocr(
             raw_text=dict_text,
-            field_type=req.field_type,
+            field_type=effective_field_type,
             confidence=mean_conf
         )
         if llm_res.get("success"):
@@ -317,8 +349,11 @@ def predict_field(req: PredictRequest):
         "min_conf_pct": round(min_conf * 100, 1),
         "mean_conf": round(mean_conf, 4),
         "mean_conf_pct": round(mean_conf * 100, 1),
-        "field_type": req.field_type,
-        "is_comb_box": req.is_comb_box,
+        "field_type": effective_field_type,
+        "is_comb_box": bool(effective_comb_box),
+        "has_grid": bool(auto_grid),
+        "detected_cells": int(auto_cells),
+        "layout_mode": layout_mode,
         "field_image_b64": orig_b64,
         "annotated_image_b64": annotated_b64 or orig_b64,
         "image_width": w,

@@ -73,9 +73,11 @@ flowchart TD
 ### Step 2: Domain-Aware Universal Adaptive Routing
 A major limitation of single-model OCR architectures is that models optimized for continuous sentences (e.g., TrOCR) fail on isolated comb-box dates (reading dividers as slashes or squashing aspect ratios), while segmented CNNs fail on continuous cursive handwriting.
 
-`server.py` routes the request dynamically:
-- **Condition A (Structured Fields):** If `field_type` is `Date`, `Postal PIN`, `Alphanumeric Code`, or `is_comb_box=True`, the image routes to **Stage 1A (SOTA Tri-Engine)**.
-- **Condition B (Freeform Handwriting):** If `field_type` is `Auto-Detect` or freeform sentences (e.g. notes, dysgraphia samples), the image routes to **Stage 1B (TrOCROCRPipeline)**.
+`server.py` routes the request dynamically via **Automated Morphological Grid Detection (`detect_grid_cells`)**:
+1. **Automated Grid Analysis:** Whenever an image is ingested, `detect_grid_cells(img)` evaluates vertical structuring element projections ($K_v = 1 \times \max(8, H \times 0.35)$), divider line clustering, and periodicity coefficient of variation ($\text{CV} = \sigma / \mu < 0.35$).
+2. **Branch 1 (Comb-Box Grid Form Fields):** If `has_grid=True` or `is_comb_box=True`, the pipeline automatically determines the cell count, isolates each character cell, eradicates physical grid spines, centers glyphs into $32 \times 32$ patches, and routes to **Stage 1A (SOTA Tri-Engine)** with FSM grammar constraints.
+3. **Branch 2 (Structured Form Fields without Grid):** If no grid is present but the field is a structured format (`Date`, `Postal PIN`, `Alphanumeric Code`), the image routes through freeform morphological line suppression + connected components + **Stage 1A (SOTA Tri-Engine)**.
+4. **Branch 3 (Normal Unconstrained Handwriting):** If no grid is present and the format is general handwriting, notes, or continuous text, the image routes to **Stage 1B (TrOCROCRPipeline)** with aspect-ratio preserving symmetrical canvas padding ($\approx 3.5:1$) and multi-line projection valley slicing.
 
 ---
 
