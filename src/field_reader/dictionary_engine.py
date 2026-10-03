@@ -106,11 +106,23 @@ class FastLexiconEngine:
                 )
         return float(dp[m][n])
 
-    def correct_word(self, word: str, max_distance: float = 1.6) -> Tuple[str, float, bool]:
+    def correct_word(self, word: str, max_distance: float = 0.45) -> Tuple[str, float, bool]:
         """
         Corrects a single word against the lexicon.
         Returns: (best_word, distance, was_corrected)
+        Strictly preserves verbatim words:
+        - NEVER modifies words containing digits or alphanumeric codes
+        - NEVER modifies uppercase names or acronyms (e.g. 'SRIRAM')
+        - NEVER replaces unknown words with random words of similar length
         """
+        # Guard: Never touch numbers, alphanumeric codes, or short tokens
+        if any(c.isdigit() for c in word) or "-" in word or len(word) <= 2:
+            return word, 0.0, False
+
+        # Guard: Never alter uppercase proper nouns or abbreviations
+        if word.isupper() and len(word) >= 2:
+            return word, 0.0, False
+
         clean_word = re.sub(r"[^\w]", "", word).lower()
         if not clean_word:
             return word, 0.0, False
@@ -127,9 +139,9 @@ class FastLexiconEngine:
             if del_candidate in self.deletes_map:
                 candidates.update(self.deletes_map[del_candidate])
 
-        # If no candidates from deletes, fallback to words of similar length
+        # Do NOT guess random words if no 1-delete match exists — preserve verbatim text
         if not candidates:
-            candidates = {w for w in self.vocabulary if abs(len(w) - len(clean_word)) <= 2}
+            return word, 0.0, False
 
         best_word = word
         min_dist = 999.0
@@ -140,6 +152,7 @@ class FastLexiconEngine:
                 min_dist = dist
                 best_word = cand
 
+        # Only correct if distance matches a known OCR confusion penalty
         if min_dist <= max_distance:
             # Preserve capitalization of original word
             if word.istitle():

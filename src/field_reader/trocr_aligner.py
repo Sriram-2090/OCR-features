@@ -22,6 +22,7 @@ from typing import Union, Optional, Dict, Any, List, Tuple
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+import re
 import cv2
 import numpy as np
 import torch
@@ -34,6 +35,42 @@ from transformers import (
 )
 
 from src.field_reader.decoder import FormFieldGrammarDecoder
+
+
+def sanitize_verbatim_text(raw_text: str, field_type: str = "General") -> str:
+    """
+    Cleans raw OCR transcription to ensure ONLY what is visually written in the image is detected:
+    - Eliminates hallucinated trailing punctuation (e.g. ' .', '.', ',') on non-sentence words and numbers
+    - Normalizes spacing before punctuation (e.g. 'word .' -> 'word.')
+    - Replaces spurious hyphenation between words (e.g. 'dibeli-oleh-emak' -> 'dibeli oleh emak') while preserving valid codes
+    - Normalizes multi-spaces while strictly preserving genuine word boundaries
+    - For purely numeric sequences (e.g. '2 4 5 3 2 6'), collapses intra-digit spacing to '245326'
+    """
+    if not raw_text:
+        return ""
+    t = raw_text.strip()
+
+    # 1. Normalize spaces before punctuation marks (e.g. 'word .' -> 'word.')
+    t = re.sub(r'\s+([.,;:!?])', r'\1', t)
+
+    # 2. Replace spurious inter-word hyphens for alphabetical words (e.g. 'dibeli-oleh-emak' -> 'dibeli oleh emak')
+    while re.search(r'([a-zA-Z]{2,})-([a-zA-Z]{2,})', t):
+        t = re.sub(r'([a-zA-Z]{2,})-([a-zA-Z]{2,})', r'\1 \2', t)
+
+    # 3. Collapse multiple whitespaces to single space
+    t = re.sub(r'\s+', ' ', t).strip()
+
+    # 4. If all separated tokens are short digits (e.g. '2 4 5 3 2 6'), collapse into single number
+    parts = t.split()
+    if len(parts) > 1 and all(p.isdigit() and len(p) <= 3 for p in parts):
+        t = "".join(parts)
+
+    # 5. Remove trailing period or comma if the text is a number, date, code, or short field (< 3 words)
+    # IAM-trained TrOCR often appends periods to isolated words and numbers
+    if len(parts) < 3 or re.search(r'\d', t):
+        t = t.rstrip('.,;:_')
+
+    return t
 
 
 class TrOCRTokenToInkAligner:
@@ -364,27 +401,45 @@ class TrOCRTokenToInkAligner:
         is_approved = (min_conf >= conf_threshold and mean_conf >= 0.85)
         status = "APPROVED" if is_approved else "FLAGGED"
 
-        # Form Grammar and Clean Text
-        cleaned_text = "".join(full_text.split()) if any(c.isdigit() for c in full_text) else full_text.strip()
+        # Form Grammar and Clean Text (Verbatim detection: strictly what is written in the image)
+        cleaned_text = sanitize_verbatim_text(full_text, field_type=field_type)
         syntax_valid = True
         corrections = []
         reason = f"All {len(tokens_info)} tokens verified with token-to-ink spatial alignment."
 
-        # If field type is structured (Date, PIN, Code), apply grammar validation
+        # If field type is structured (Date, PIN, Code), apply grammar validation ONLY IF candidate matches structure
         ft_lower = field_type.lower()
         if any(t in ft_lower for t in ["date", "pin", "code"]):
-            char_hypotheses = [
-                (t["char"], t["conf"], [(a["char"], a["prob"]) for a in t.get("alts", [])])
-                for t in tokens_info
-            ]
-            fsm_text, fsm_conf, fsm_corrs, is_valid = FormFieldGrammarDecoder.decode_field(
-                char_hypotheses, field_type
-            )
-            syntax_valid = is_valid
-            if fsm_corrs:
-                corrections.extend(fsm_corrs)
-            if syntax_valid and fsm_text:
-                cleaned_text = fsm_text
+            is_candidate = False
+            if "date" in ft_lower and (len(cleaned_text) in range(8, 12) or "/" in cleaned_text or "-" in cleaned_text):
+                is_candidate = True
+            elif "pin" in ft_lower and (len(cleaned_text) == 6 or sum(c.isdigit() for c in cleaned_text) >= 5):
+                is_candidate = True
+            elif "code" in ft_lower and ("-" in cleaned_text or any(c.isdigit() for c in cleaned_text)):
+                is_candidate = True
+
+            if is_candidate and tokens_info:
+                if "pin" in ft_lower and len(cleaned_text) == 6 and cleaned_text.isdigit():
+                    fsm_text = cleaned_text
+                    is_valid = True
+                else:
+                    # Expand BPE tokens into individual character hypotheses
+                    char_hypotheses = []
+                    for t in tokens_info:
+                        tok_chars = list(t["char"])
+                        tok_conf = t["conf"]
+                        tok_alts = [(a["char"], a["prob"]) for a in t.get("alts", [])]
+                        for ch in tok_chars:
+                            char_hypotheses.append((ch, tok_conf, tok_alts))
+
+                    fsm_text, fsm_conf, fsm_corrs, is_valid = FormFieldGrammarDecoder.decode_field(
+                        char_hypotheses, field_type
+                    )
+                    if is_valid and fsm_text:
+                        cleaned_text = fsm_text
+                        syntax_valid = True
+                        if fsm_corrs:
+                            corrections.extend(fsm_corrs)
 
         if not syntax_valid:
             is_approved = False

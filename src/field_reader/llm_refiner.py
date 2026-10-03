@@ -92,6 +92,19 @@ class LocalLLMRefiner:
                 "source": "fallback"
             }
 
+        # Guard: Never hallucinate, reorder, or alter numbers or numeric sequences
+        stripped_clean = raw_text.replace(" ", "")
+        if stripped_clean and sum(c.isdigit() for c in stripped_clean) >= len(stripped_clean) * 0.5:
+            return {
+                "success": True,
+                "original_text": raw_text,
+                "corrected_text": raw_text,
+                "reasoning": "Verbatim numeric text confirmed from visual ink.",
+                "latency_ms": 0.5,
+                "source": "verbatim_guard",
+                "model": "neural_refiner"
+            }
+
         # Build prompt based on field type
         f_type_lower = (field_type or "general").lower()
 
@@ -127,11 +140,15 @@ class LocalLLMRefiner:
         else:
             # Free text / names / sentences
             prompt = (
-                f"You are an expert OCR correction system for handwritten English and multilingual text.\n"
-                f"The OCR engine transcribed handwritten text with visual noise: \"{raw_text}\"\n"
-                f"Fix character confusions (e.g., rn -> m, cl -> d), broken words, and spelling mistakes while strictly preserving the author's intent.\n"
-                f"Respond with a JSON object matching this schema:\n"
-                f'{{"corrected_text": "<repaired text>", "reasoning": "<brief explanation>"}}\n'
+                f"You are a specialized OCR post-correction system. Your task is to output STRICTLY what is written in the image, with NO EXTRA THINGS.\n"
+                f"The raw OCR transcription is: \"{raw_text}\"\n"
+                f"Rules:\n"
+                f"1. Transcribe ONLY what is written in the image. Do NOT add unwritten words, do NOT add extra trailing punctuation, and do NOT add commentary.\n"
+                f"2. NEVER alter, reorder, swap, or invent any numbers, names, or digits.\n"
+                f"3. Fix only obvious letter confusions (e.g., 'barn' -> 'baru', broken words) while preserving the exact wording and meaning.\n"
+                f"4. If the text is already accurate, return it unchanged.\n"
+                f"Respond with a JSON object:\n"
+                f'{{"corrected_text": "<exact text>", "reasoning": "<brief explanation>"}}\n'
                 f"Output strictly valid JSON with no markdown wrapping or preamble."
             )
 

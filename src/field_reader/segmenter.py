@@ -201,7 +201,23 @@ def segment_field_characters(
     """
     fh, fw = field_bgr.shape[:2]
     gray = cv2.cvtColor(field_bgr, cv2.COLOR_BGR2GRAY)
-    _, binary = cv2.threshold(gray, 210, 255, cv2.THRESH_BINARY_INV)
+    # Robust Adaptive Binarization (handles dark bg, light bg, and colored inks)
+    border_sample = np.concatenate([gray[0, :], gray[-1, :], gray[:, 0], gray[:, -1]])
+    is_dark_bg = np.mean(border_sample) < 110
+
+    if is_dark_bg:
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    else:
+        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # Detect vibrant colored ink (e.g. red marker, blue ballpoint) on notebook paper
+    if field_bgr.ndim == 3 and field_bgr.shape[2] == 3:
+        r = field_bgr[:, :, 2].astype(np.int16)
+        g = field_bgr[:, :, 1].astype(np.int16)
+        b = field_bgr[:, :, 0].astype(np.int16)
+        color_diff = np.maximum(np.maximum(r - g, r - b), b - np.maximum(r, g))
+        color_mask = (color_diff > 30).astype(np.uint8) * 255
+        binary = cv2.bitwise_or(binary, color_mask)
 
     # 1. Automated Grid Detection
     auto_grid, auto_cells, auto_dividers = detect_grid_cells(field_bgr)
@@ -274,9 +290,11 @@ def segment_field_characters(
     boxes.sort(key=lambda b: b[0])
 
     if not boxes:
-        k = num_expected_cells or 6
-        cell_w = fw / k
-        return [(field_bgr[:, int(i*cell_w):int((i+1)*cell_w)], (int(i*cell_w), 0, int(cell_w), fh)) for i in range(k)]
+        if num_expected_cells and num_expected_cells > 0:
+            k = num_expected_cells
+            cell_w = fw / k
+            return [(field_bgr[:, int(i*cell_w):int((i+1)*cell_w)], (int(i*cell_w), 0, int(cell_w), fh)) for i in range(k)]
+        return []
 
     # Smart Box Merging: Unify split character strokes and dots
     typical_w = float(np.median([b[2] for b in boxes])) if boxes else 15.0

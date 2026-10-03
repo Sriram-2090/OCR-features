@@ -1,11 +1,10 @@
 import os, glob, time
 import pandas as pd
 import numpy as np
-from src.field_reader.trocr_aligner import TrOCRTokenToInkAligner
-from src.field_reader.model import load_trained_model
-from src.field_reader.decoder import FieldGrammarDecoder
+from src.field_reader.trocr_aligner import get_trocr_aligner
 
-aligner = TrOCRTokenToInkAligner()
+
+aligner = get_trocr_aligner()
 
 df = pd.read_csv('data/form_fields/metadata.csv')
 print(f"Testing on first 10 fields...")

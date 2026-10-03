@@ -168,6 +168,8 @@ class FormFieldGrammarDecoder:
             lattice.append([(p_char if p_char.isdigit() else (d_alts[0][0] if d_alts else "0"), conf)] + d_alts[:3])
 
         raw_pred = "".join([l[0][0] for l in lattice])
+        if len(lattice) < 6:
+            return raw_pred, (min(l[0][1] for l in lattice) if lattice else 0.5), corrections, False
 
         # If known PIN directory loaded
         if not cls.PIN_DIRECTORY:
