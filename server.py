@@ -651,21 +651,28 @@ def process_full_form(req: FormProcessRequest):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid image_base64: {e}")
     else:
-        # Load sample form from disk
-        samples_dir = os.path.join(REPO_ROOT, "data", "sample_forms")
-        target_path = os.path.join(samples_dir, form_id_str)
-        if not os.path.exists(target_path) and os.path.exists(samples_dir):
-            clean_id = re.sub(r"[^\d]", "", form_id_str)
-            if clean_id:
-                num = int(clean_id)
-                for fname in os.listdir(samples_dir):
-                    if f"{num:03d}" in fname and fname.endswith(".png"):
-                        target_path = os.path.join(samples_dir, fname)
-                        break
+        # Check if blank canonical template requested
+        if form_id_str.lower() in ("blank", "template", "form_template_blank.png"):
+            tpl_path = os.path.join(REPO_ROOT, "data", "templates", "form_template_blank.png")
+            if os.path.exists(tpl_path):
+                img_bgr = cv2.imread(tpl_path)
+                form_id_str = "blank"
+        else:
+            # Load sample form from disk
+            samples_dir = os.path.join(REPO_ROOT, "data", "sample_forms")
+            target_path = os.path.join(samples_dir, form_id_str)
+            if not os.path.exists(target_path) and os.path.exists(samples_dir):
+                clean_id = re.sub(r"[^\d]", "", form_id_str)
+                if clean_id:
+                    num = int(clean_id)
+                    for fname in os.listdir(samples_dir):
+                        if f"{num:03d}" in fname and fname.endswith(".png"):
+                            target_path = os.path.join(samples_dir, fname)
+                            break
 
-        if os.path.exists(target_path):
-            img_bgr = cv2.imread(target_path)
-            form_id_str = os.path.splitext(os.path.basename(target_path))[0]
+            if os.path.exists(target_path):
+                img_bgr = cv2.imread(target_path)
+                form_id_str = os.path.splitext(os.path.basename(target_path))[0]
 
     if img_bgr is None:
         raise HTTPException(status_code=400, detail="No valid form image provided or found")
@@ -677,26 +684,32 @@ def process_full_form(req: FormProcessRequest):
         save_crops=req.save_crops if req.save_crops is not None else True
     )
 
-    # Attach ground truth if matching sample form
-    manifest_path = os.path.join(REPO_ROOT, "data", "sample_forms", "sample_forms_manifest.json")
-    if os.path.exists(manifest_path):
-        try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                manifest = json.load(f)
-            for m in manifest:
-                if (m["filename"] in form_id_str or 
-                    f"form_{m['form_id']:03d}" in form_id_str or 
-                    f"sample_form_{m['form_id']:03d}" in form_id_str):
-                    gt = m.get("ground_truth", {})
-                    result["difficulty"] = m.get("difficulty", "legible")
-                    for f in result.get("fields", []):
-                        fkey = f["field_id"]
-                        if fkey in gt:
-                            f["ground_truth"] = gt[fkey]
-                            f["is_exact_match"] = (f["text"].strip().upper() == str(gt[fkey]).strip().upper())
-                    break
-        except Exception:
-            pass
+    # Attach ground truth if blank or matching sample form
+    if form_id_str == "blank":
+        result["difficulty"] = "canonical"
+        for f in result.get("fields", []):
+            f["ground_truth"] = "(Empty)"
+            f["is_exact_match"] = (f["text"].strip() == "")
+    else:
+        manifest_path = os.path.join(REPO_ROOT, "data", "sample_forms", "sample_forms_manifest.json")
+        if os.path.exists(manifest_path):
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+                for m in manifest:
+                    if (m["filename"] in form_id_str or 
+                        f"form_{m['form_id']:03d}" in form_id_str or 
+                        f"sample_form_{m['form_id']:03d}" in form_id_str):
+                        gt = m.get("ground_truth", {})
+                        result["difficulty"] = m.get("difficulty", "legible")
+                        for f in result.get("fields", []):
+                            fkey = f["field_id"]
+                            if fkey in gt:
+                                f["ground_truth"] = gt[fkey]
+                                f["is_exact_match"] = (f["text"].strip().upper() == str(gt[fkey]).strip().upper())
+                        break
+            except Exception:
+                pass
 
     return result
 

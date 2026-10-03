@@ -1875,7 +1875,7 @@ function FullFormScannerPage() {
                     onClick: () => handleConfirmField(f)
                   }, isCopied ? '✓ Verified!' : '✓ Confirm')
                 ),
-                f.ground_truth !== undefined && h('div', { className: 'gt-match-tag' },
+                f.ground_truth !== undefined && f.ground_truth !== null && f.ground_truth !== '' && h('div', { className: 'gt-match-tag' },
                   h('span', null, `Ground Truth: "${f.ground_truth}"`),
                   h('span', { className: isExact ? 'gt-exact-yes' : 'gt-exact-no' },
                     isExact ? '✓ 100% Exact Match' : '⚠ Discrepancy'
