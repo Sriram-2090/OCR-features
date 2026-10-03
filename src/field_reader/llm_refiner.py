@@ -1,6 +1,6 @@
 """
-FormFlow OCR - Local LLM Post-Correction Engine (Tier 2)
-Integrates Qwen 2.5 (7B) via local Ollama daemon for deep semantic OCR correction,
+OC&HCR - Neural Semantic Post-Correction Engine (Tier 2)
+Integrates Neural Refiner via local AI daemon for deep semantic OCR correction,
 contextual error repair, and visual confusion disambiguation.
 """
 
@@ -18,8 +18,8 @@ DEFAULT_MODEL = os.environ.get("OLLAMA_OCR_MODEL", "qwen2.5:7b")
 
 class LocalLLMRefiner:
     """
-    Tier-2 Semantic LLM Post-Correction Engine.
-    Uses local Qwen 2.5 7B to repair complex OCR misrecognitions, broken syntax,
+    Tier-2 Semantic Neural Post-Correction Engine.
+    Uses neural reasoning to repair complex OCR misrecognitions, broken syntax,
     and ambiguous handwriting tokens.
     """
 
@@ -30,10 +30,10 @@ class LocalLLMRefiner:
         self._last_check_time: float = 0.0
 
     def check_health(self, force: bool = False) -> Dict[str, Any]:
-        """Checks if the local Ollama server is reachable and lists available models."""
+        """Checks if the local AI server is reachable and lists available models."""
         now = time.time()
         if not force and self._is_available is not None and (now - self._last_check_time) < 15.0:
-            return {"available": self._is_available, "model": self.model}
+            return {"available": self._is_available, "model": "neural_refiner"}
 
         self._last_check_time = now
         try:
@@ -57,7 +57,7 @@ class LocalLLMRefiner:
                 self._is_available = True
                 return {
                     "available": True,
-                    "model": self.model,
+                    "model": "neural_refiner",
                     "models_installed": models,
                     "base_url": self.base_url
                 }
@@ -65,7 +65,7 @@ class LocalLLMRefiner:
             pass
 
         self._is_available = False
-        return {"available": False, "model": self.model, "error": "Ollama service not running"}
+        return {"available": False, "model": "neural_refiner", "error": "AI service not running"}
 
     def refine_ocr(
         self,
@@ -75,7 +75,7 @@ class LocalLLMRefiner:
         expected_cells: Optional[int] = None
     ) -> Dict[str, Any]:
         """
-        Submits raw OCR text to local Qwen 2.5 for context-aware post-correction.
+        Submits raw OCR text to Neural Refiner for context-aware post-correction.
         Returns structured dictionary with corrected text, reasoning, and latency.
         """
         start_t = time.perf_counter()
@@ -87,7 +87,7 @@ class LocalLLMRefiner:
                 "success": False,
                 "original_text": raw_text,
                 "corrected_text": raw_text,
-                "reasoning": "Local LLM daemon offline (using Tier-1 dictionary fallback).",
+                "reasoning": "Neural refinement offline (Fast Lexicon applied).",
                 "latency_ms": round((time.perf_counter() - start_t) * 1000, 1),
                 "source": "fallback"
             }
@@ -161,15 +161,15 @@ class LocalLLMRefiner:
                 try:
                     parsed = json.loads(clean_json)
                     corrected = parsed.get("corrected_text", raw_text).strip()
-                    reasoning = parsed.get("reasoning", "Semantic correction applied by Local Qwen 2.5.")
+                    reasoning = parsed.get("reasoning", "Semantic verification confirmed by Neural AI.")
                     return {
                         "success": True,
                         "original_text": raw_text,
                         "corrected_text": corrected,
                         "reasoning": reasoning,
                         "latency_ms": latency_ms,
-                        "source": "llm_qwen2.5",
-                        "model": self.model
+                        "source": "neural_refiner",
+                        "model": "neural_refiner"
                     }
                 except json.JSONDecodeError:
                     # Clean fallback if raw text was returned directly
@@ -178,17 +178,17 @@ class LocalLLMRefiner:
                         "success": True,
                         "original_text": raw_text,
                         "corrected_text": cleaned_direct if len(cleaned_direct) < len(raw_text) * 2 else raw_text,
-                        "reasoning": "Corrected via Qwen 2.5 text generation.",
+                        "reasoning": "Corrected via Neural AI semantic refinement.",
                         "latency_ms": latency_ms,
-                        "source": "llm_qwen2.5",
-                        "model": self.model
+                        "source": "neural_refiner",
+                        "model": "neural_refiner"
                     }
             else:
                 return {
                     "success": False,
                     "original_text": raw_text,
                     "corrected_text": raw_text,
-                    "reasoning": f"Ollama HTTP error {resp.status_code}",
+                    "reasoning": f"Neural refiner response status {resp.status_code}",
                     "latency_ms": round((time.perf_counter() - start_t) * 1000, 1),
                     "source": "fallback"
                 }
@@ -198,7 +198,7 @@ class LocalLLMRefiner:
                 "success": False,
                 "original_text": raw_text,
                 "corrected_text": raw_text,
-                "reasoning": f"Local LLM call error: {str(e)}",
+                "reasoning": f"Neural refiner error: {str(e)}",
                 "latency_ms": round((time.perf_counter() - start_t) * 1000, 1),
                 "source": "fallback"
             }

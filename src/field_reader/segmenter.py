@@ -120,6 +120,10 @@ def detect_grid_cells(
         divider_lines: List[int] (x-coordinates of vertical dividers)
     """
     fh, fw = field_bgr.shape[:2]
+    # Comb boxes are single horizontal field crops (fw >= 80, fh <= 450)
+    if fh > 450 or fw < 80:
+        return False, 0, []
+
     if len(field_bgr.shape) == 3:
         gray = cv2.cvtColor(field_bgr, cv2.COLOR_BGR2GRAY)
     else:
@@ -131,17 +135,19 @@ def detect_grid_cells(
     else:
         _, binary = cv2.threshold(gray, 45, 255, cv2.THRESH_BINARY)
 
-    v_len = max(8, int(fh * 0.35))
+    # Vertical line length: real comb dividers span >= 55% of field height
+    v_len = max(10, int(fh * 0.55))
     v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_len))
     v_lines = cv2.morphologyEx(binary, cv2.MORPH_OPEN, v_kernel)
     v_proj = np.sum(v_lines > 0, axis=0)
 
-    thresh = fh * 0.30
+    # Require line to span >= 65% of the morphological length
+    thresh = max(8, int(v_len * 0.65))
     line_cols = np.where(v_proj >= thresh)[0]
-    if len(line_cols) < 2:
+    if len(line_cols) < 4:
         return False, 0, []
 
-    # Cluster adjacent column indices into discrete line centers
+    # Cluster adjacent column indices into discrete line centers (within 3px)
     raw_lines = []
     cluster = [line_cols[0]]
     for col in line_cols[1:]:
@@ -152,32 +158,33 @@ def detect_grid_cells(
             cluster = [col]
     raw_lines.append(int(round(np.mean(cluster))))
 
-    if len(raw_lines) < 3:
+    if len(raw_lines) < 4:
         return False, 0, []
 
     spacings = np.diff(raw_lines)
     median_spacing = float(np.median(spacings))
-    if median_spacing < 8:
+    if median_spacing < 10 or median_spacing > fw * 0.5:
         return False, 0, []
 
-    # Clean spurious intra-character lines that are too close to neighbors (< 0.68 * median_spacing)
+    # Clean spurious intra-character lines that are too close to neighbors
     clean_lines = [raw_lines[0]]
     for l in raw_lines[1:]:
-        if (l - clean_lines[-1]) < median_spacing * 0.68:
+        if (l - clean_lines[-1]) < median_spacing * 0.75:
             continue
         clean_lines.append(l)
 
-    clean_spacings = np.diff(clean_lines)
-    if len(clean_spacings) < 2:
+    if len(clean_lines) < 4 or len(clean_lines) > 25:
         return False, 0, []
 
+    clean_spacings = np.diff(clean_lines)
     clean_med = float(np.median(clean_spacings))
     std_spacing = float(np.std(clean_spacings))
     cv_spacing = std_spacing / clean_med
     grid_span = clean_lines[-1] - clean_lines[0]
     span_ratio = grid_span / fw
 
-    is_grid = (cv_spacing < 0.35) and (span_ratio > 0.35) and (len(clean_lines) >= 3)
+    # Comb-box divider lines have strict periodicity (CV <= 0.18) and cover wide horizontal span (>= 0.60)
+    is_grid = (cv_spacing <= 0.18) and (span_ratio >= 0.60)
     num_cells = len(clean_lines) - 1 if is_grid else 0
     return is_grid, num_cells, clean_lines
 

@@ -677,7 +677,7 @@ function StationPage() {
             { k: 'Mean Confidence', v: `${(meanConf * 100).toFixed(1)}% (${confShort})`, color: confColor },
             { k: 'Tokens Aligned', v: glyphs.length },
             { k: 'Routing Status', v: confTier === 'high' ? '✅ Auto-Approved' : (confTier === 'medium' ? '⚠️ Review Recommended' : '🚨 Review Required'), color: confColor },
-            { k: 'Comb-Box Mode', v: 'Morphology Active' },
+            { k: 'Layout Detected', v: (prediction && prediction.has_grid) ? `🗂️ Grid (${prediction.detected_cells} cells)` : ((prediction && (prediction.layout_mode === 'normal_handwriting' || prediction.layout_mode === 'multiline_handwriting')) ? '✍️ Normal Handwriting' : `📋 Freeform ${prediction && prediction.field_type ? prediction.field_type : 'Field'}`), color: 'var(--brand)' },
             { k: 'Operator Latency', v: fmtTime(sec) },
           ].map((m, i) =>
             h('div', { key: i, className: 'meta-cell' },
@@ -829,7 +829,7 @@ function StationPage() {
                   },
                   title: 'Unconstrained cursive handwriting processed via Vision-Language Transformer'
                 }, '✍️ Normal Handwriting'),
-                prediction && !prediction.has_grid && prediction.layout_mode === 'structured_freeform' && h('span', {
+                prediction && !prediction.has_grid && (prediction.layout_mode === 'structured_freeform' || prediction.layout_mode === 'auto_structured_freeform') && h('span', {
                   style: {
                     fontSize: 10.5,
                     padding: '2px 8px',

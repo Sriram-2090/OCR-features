@@ -119,7 +119,10 @@ class FormReaderPipeline:
         char_hypotheses = []
         glyph_details = []
 
-        for crop, bbox in glyphs[:n_cells]:
+        # If freeform and no expected_cells specified, process all segmented glyphs
+        target_glyphs = glyphs if (not is_comb_box and not expected_cells) else glyphs[:n_cells]
+
+        for crop, bbox in target_glyphs:
             tensor, patch_vis = normalize_glyph(crop)
 
             if self.model_loaded and self.model is not None:
@@ -144,6 +147,16 @@ class FormReaderPipeline:
 
         corrections = []
 
+        # Auto-infer field type if Auto/General
+        eff_field_type = field_type
+        if eff_field_type.lower() in ["general", "auto", "unknown"]:
+            if len(char_hypotheses) == 10 and (raw_str[2] in "/-." or raw_str[5] in "/-."):
+                eff_field_type = "Date"
+            elif len(char_hypotheses) == 6 and sum(c[0].isdigit() for c in char_hypotheses) >= 4:
+                eff_field_type = "Pin"
+            elif "-" in raw_str and any(c.isalpha() for c in raw_str) and any(c.isdigit() for c in raw_str):
+                eff_field_type = "Code"
+
         # 3. Mode Execution
         if mode == "raw_cnn":
             final_text = raw_str
@@ -152,18 +165,18 @@ class FormReaderPipeline:
 
         elif mode == "grammar_fsm":
             final_text, final_conf, corrs, syntax_valid = FormFieldGrammarDecoder.decode_field(
-                char_hypotheses, field_type
+                char_hypotheses, eff_field_type
             )
             corrections.extend(corrs)
 
         else: # tri_engine
             fsm_text, fsm_conf, fsm_corrs, syntax_valid = FormFieldGrammarDecoder.decode_field(
-                char_hypotheses, field_type
+                char_hypotheses, eff_field_type
             )
             corrections.extend(fsm_corrs)
 
             final_text, sem_conf, sem_reason = SemanticFieldVerifier.repair_field(
-                fsm_text, field_type, char_hypotheses
+                fsm_text, eff_field_type, char_hypotheses
             )
             if sem_reason and "valid" not in sem_reason:
                 corrections.append(f"Semantic Verifier: {sem_reason}")

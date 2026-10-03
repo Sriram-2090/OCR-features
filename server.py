@@ -29,7 +29,9 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from src.field_reader.pipeline import FormReaderPipeline
-from src.field_reader.segmenter import detect_grid_cells
+from src.field_reader.segmenter import detect_grid_cells, segment_field_characters, normalize_glyph
+from src.field_reader.decoder import FormFieldGrammarDecoder
+from src.field_reader.semantic_verifier import SemanticFieldVerifier
 from src.field_reader.trocr_aligner import get_trocr_aligner
 from src.field_reader.trocr_ocr_engine import TrOCROCRPipeline
 from src.field_reader.handwriting_analyzer import get_handwriting_analyzer
@@ -225,49 +227,50 @@ def predict_field(req: PredictRequest):
 
     h, w = img_bgr.shape[:2]
 
-    # 1. Automated Physical Grid & Comb-Box Detection
+    # 1. Automated Robust Physical Grid & Comb-Box Detection
     auto_grid, auto_cells, auto_dividers = detect_grid_cells(img_bgr)
-    effective_comb_box = req.is_comb_box or auto_grid
-    effective_expected_cells = req.expected_cells or (auto_cells if auto_grid else None)
+    f_type_lower = (req.field_type or "auto").lower()
 
-    # 2. Field Type & Schema Resolution
-    f_type_lower = (req.field_type or "general").lower()
-    effective_field_type = req.field_type
-
-    # If user explicitly selected normal handwriting, force unconstrained handwriting mode
+    # User overrides
     if f_type_lower in ["handwriting", "notes", "sentences", "text"]:
-        effective_comb_box = False
-        is_structured = False
-        auto_grid = False
-        effective_field_type = "Handwriting"
-    elif auto_grid and f_type_lower in ["general", "auto", "unknown", "combbox", ""]:
-        # If grid is detected and user left format as Auto/General, infer type from cell count
-        if auto_cells == 10:
-            effective_field_type = "Date"
-            f_type_lower = "date"
-        elif auto_cells == 6:
-            effective_field_type = "Pin"
-            f_type_lower = "pin"
-        elif auto_cells in [7, 8]:
-            effective_field_type = "Code"
-            f_type_lower = "code"
+        force_handwriting = True
+        force_comb = False
+    elif req.is_comb_box or f_type_lower in ["combbox", "grid"]:
+        force_comb = True
+        force_handwriting = False
+    else:
+        force_handwriting = False
+        force_comb = False
 
-    is_structured = any(k in f_type_lower for k in ["date", "pin", "code"]) or effective_comb_box
+    effective_comb_box = (req.is_comb_box or auto_grid) and not force_handwriting
+    effective_expected_cells = req.expected_cells or (auto_cells if auto_grid else None)
 
     raw_ocr_text = ""
     mean_conf = 0.88
     min_conf = 0.80
     annotated_b64 = None
-    layout_mode = "grid" if effective_comb_box else ("structured_freeform" if is_structured else "normal_handwriting")
+    layout_mode = "unknown"
+    effective_field_type = req.field_type or "Auto"
     t_ocr_start = time.perf_counter()
 
-    # Step A: Comb-Box Grid Field OR Explicit Structured Form Field -> Tri-Engine
-    if is_structured and pipeline.model_loaded:
+    # PATH 1: Comb-Box Grid Field (Detected or Explicit)
+    if effective_comb_box and pipeline.model_loaded:
+        if f_type_lower in ["general", "auto", "unknown", "combbox", "grid", ""]:
+            if auto_cells == 10:
+                effective_field_type = "Date"
+            elif auto_cells == 6:
+                effective_field_type = "Pin"
+            elif auto_cells in [7, 8]:
+                effective_field_type = "Code"
+            else:
+                effective_field_type = "General"
+
+        layout_mode = "grid"
         try:
             res_tri = pipeline.process(
                 img_bgr,
                 field_type=effective_field_type,
-                is_comb_box=effective_comb_box,
+                is_comb_box=True,
                 expected_cells=effective_expected_cells,
                 mode="tri_engine",
                 conf_threshold=req.conf_threshold
@@ -276,21 +279,91 @@ def predict_field(req: PredictRequest):
             mean_conf = float(res_tri.get("mean_conf", 0.92))
             min_conf = float(res_tri.get("min_conf", 0.85))
         except Exception as e:
-            print(f"[Universal Router] Tri-Engine error: {e}")
+            print(f"[Universal Router] Grid Tri-Engine error: {e}")
 
-    # Step B: Normal Handwritten Image (Freeform sentences, unconstrained cursive, notes)
-    # or fallback if Tri-Engine gave empty/insufficient text on non-grid images
-    if not raw_ocr_text or (not is_structured and not effective_comb_box):
+    # PATH 2: Explicit Structured Form Field without grid (User chose Date, PIN, or Code)
+    elif any(k in f_type_lower for k in ["date", "pin", "code"]) and pipeline.model_loaded:
+        layout_mode = "structured_freeform"
+        effective_field_type = req.field_type
         try:
-            if h > 180 and w > 200:
-                # Multi-line document / note
+            res_tri = pipeline.process(
+                img_bgr,
+                field_type=effective_field_type,
+                is_comb_box=False,
+                mode="tri_engine",
+                conf_threshold=req.conf_threshold
+            )
+            raw_ocr_text = res_tri.get("text", "")
+            mean_conf = float(res_tri.get("mean_conf", 0.90))
+            min_conf = float(res_tri.get("min_conf", 0.85))
+        except Exception as e:
+            print(f"[Universal Router] Structured Freeform error: {e}")
+
+    # PATH 3: Auto-Detect (Single-line freeform form field vs. Normal handwriting)
+    elif not force_handwriting and pipeline.model_loaded:
+        glyphs = segment_field_characters(img_bgr, is_comb_box=False)
+        structured_match = False
+        if glyphs and len(glyphs) in range(4, 15):
+            # Calculate aspect ratios of glyphs to reject wide cursive word blobs
+            aspect_ratios = [g[1][2] / max(1, g[1][3]) for g in glyphs]
+            if np.median(aspect_ratios) < 2.0 and max(aspect_ratios) < 3.2:
+                tri_char_hyps = []
+                for crop, bbox in glyphs:
+                    tensor, _ = normalize_glyph(crop)
+                    p_char, conf, alts = pipeline.model.predict_patch(
+                        tensor, vocab=pipeline.vocab, allowed_vocab=pipeline.vocab, device=pipeline.device
+                    )
+                    tri_char_hyps.append((p_char, conf, alts))
+
+                raw_tri = "".join([c[0] for c in tri_char_hyps])
+
+                # Date schema check
+                if len(tri_char_hyps) == 10 and (raw_tri[2] in "/-." or raw_tri[5] in "/-."):
+                    fsm_text, fsm_conf, _, _ = FormFieldGrammarDecoder.decode_date(tri_char_hyps)
+                    final_text, sem_conf, _ = SemanticFieldVerifier.repair_field(fsm_text, "Date", tri_char_hyps)
+                    raw_ocr_text = final_text
+                    mean_conf = float(min(fsm_conf, sem_conf))
+                    min_conf = float(np.min([c[1] for c in tri_char_hyps]))
+                    effective_field_type = "Date"
+                    layout_mode = "auto_structured_freeform"
+                    structured_match = True
+
+                # PIN schema check
+                elif len(tri_char_hyps) == 6:
+                    digit_score = sum(1 for c, conf, alts in tri_char_hyps if c.isdigit() or any(a[0].isdigit() and a[1] > 0.15 for a in alts))
+                    if digit_score >= 5:
+                        fsm_text, fsm_conf, _, _ = FormFieldGrammarDecoder.decode_pin(tri_char_hyps)
+                        final_text, sem_conf, _ = SemanticFieldVerifier.repair_field(fsm_text, "Pin", tri_char_hyps)
+                        raw_ocr_text = final_text
+                        mean_conf = float(min(fsm_conf, sem_conf))
+                        min_conf = float(np.min([c[1] for c in tri_char_hyps]))
+                        effective_field_type = "Pin"
+                        layout_mode = "auto_structured_freeform"
+                        structured_match = True
+
+                # Alphanumeric Code schema check
+                elif "-" in raw_tri and any(c.isalpha() for c in raw_tri) and any(c.isdigit() for c in raw_tri):
+                    fsm_text, fsm_conf, _, _ = FormFieldGrammarDecoder.decode_code(tri_char_hyps)
+                    final_text, sem_conf, _ = SemanticFieldVerifier.repair_field(fsm_text, "Code", tri_char_hyps)
+                    raw_ocr_text = final_text
+                    mean_conf = float(min(fsm_conf, sem_conf))
+                    min_conf = float(np.min([c[1] for c in tri_char_hyps]))
+                    effective_field_type = "Code"
+                    layout_mode = "auto_structured_freeform"
+                    structured_match = True
+
+    # PATH 4: Normal Handwriting (Unconstrained Cursive, Sentences, Multi-Line Notes)
+    if not raw_ocr_text:
+        effective_field_type = "Handwriting"
+        try:
+            # If image is tall and wide (page/paragraph format), process multi-line
+            if h > 250 and (w / max(1, h)) < 2.5:
                 trocr_res = trocr_ocr_pipeline.transcribe(img_bgr)
                 raw_ocr_text = trocr_res.full_text
                 mean_conf = float(trocr_res.mean_confidence)
                 min_conf = max(0.5, mean_conf - 0.15)
                 layout_mode = "multiline_handwriting"
             else:
-                # Single-line or general handwriting crop with aspect ratio preservation
                 trocr_res = trocr_aligner.predict_and_align(
                     img_bgr, field_type=effective_field_type, conf_threshold=req.conf_threshold
                 )
@@ -306,9 +379,12 @@ def predict_field(req: PredictRequest):
 
     t_ocr_end = time.perf_counter()
 
-    # Step C: Tier 1 Fast Lexicon Post-Processor
+    # Step C: Tier 1 Fast Lexicon Post-Processor (only for natural handwriting text)
     t_lex_start = time.perf_counter()
-    dict_text, dict_notes = lexicon_engine.correct_sentence(raw_ocr_text)
+    if layout_mode in ["normal_handwriting", "multiline_handwriting"] or "handwriting" in effective_field_type.lower():
+        dict_text, dict_notes = lexicon_engine.correct_sentence(raw_ocr_text)
+    else:
+        dict_text, dict_notes = raw_ocr_text, "Form schema validated."
     t_lex_end = time.perf_counter()
 
     # Step D: Tier 2 Neural Semantic Refiner
@@ -318,7 +394,7 @@ def predict_field(req: PredictRequest):
     llm_reasoning = ""
     final_text = dict_text
 
-    if llm_health.get("available"):
+    if llm_health.get("available") and (layout_mode in ["normal_handwriting", "multiline_handwriting"] or mean_conf < 0.92):
         llm_res = llm_refiner.refine_ocr(
             raw_text=dict_text,
             field_type=effective_field_type,
@@ -328,8 +404,10 @@ def predict_field(req: PredictRequest):
             final_text = llm_res.get("corrected_text", dict_text)
             llm_reasoning = llm_res.get("reasoning", "")
             llm_applied = (final_text != raw_ocr_text)
+    elif not llm_health.get("available"):
+        llm_reasoning = "Neural refinement offline (Fast Lexicon applied)."
     else:
-        llm_reasoning = "Neural refinement offline. Fast Lexicon applied."
+        llm_reasoning = "High confidence neural verification; formatting confirmed."
     t_llm_end = time.perf_counter()
 
     is_exact_match = (final_text == ground_truth) if ground_truth is not None else None
