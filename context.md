@@ -744,3 +744,37 @@ Created a comprehensive, exhaustive architectural blueprint and workflow specifi
 - Loaded `@fontsource/cascadia-code` CDN with sub-font fallback stack:
   `font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;`
 - Applied universally to `:root`, `body`, `input`, `button`, `select`, `textarea`, metadata cells, badges, and code labels.
+
+
+---
+
+## 22. Algorithmic Inventory & Implementation Catalog (Oct 2026)
+
+Documented the complete mathematical, heuristic, deep learning, and linguistic algorithm catalog powering OC&HCR:
+
+### 1. Computer Vision & Preprocessing Algorithms:
+- **Morphological Comb Spine Eradication:** Vertical structural element opening ($K_v = 1 	imes H/3$) followed by binary dilation subtraction to eliminate comb borders without clipping strokes.
+- **Horizontal Projection Profile Baseline Slicing:** Line-level deskewing and baseline suppression while protecting descender glyphs (`g`, `y`, `p`, `q`).
+- **Centroid Center-of-Mass Normalization:** Image spatial moments ($M_{10}/M_{00}, M_{01}/M_{00}$) for standardized $32 \times 32$ centered glyph crops.
+- **Aspect-Ratio Preserving Canvas Padding:** Symmetrical vertical whitespace padding ($AR \approx 3.5:1$) preventing 5x horizontal stroke compression in Vision Transformers.
+- **Projection Valley Line Segmentation:** Dynamic thresholding along horizontal ink distribution valleys for multi-line handwriting splitting.
+
+### 2. Neural Recognition & Sequence Modeling:
+- **Deep Residual Character CNN (FieldCharacterCNN):** 4-stage residual convolutional blocks, batch norm, spatial dropout ($p=0.3$), max-pooling, fully connected classification over 64 classes.
+- **Vision Transformer (ViT / DeiT Encoder):** $16 \times 16$ patch projection embeddings with multi-head self-attention.
+- **Autoregressive Language Decoder (RoBERTa):** Multi-head cross-attention over visual tokens with 4-beam search decoding, length penalty ($\\alpha=1.0$), and repetition suppression.
+- **Attention Map Back-Projection:** Cross-attention gradient attribution mapping character tokens to visual bounding boxes ($[x_{\\min}, y_{\\min}, x_{\\max}, y_{\\max}]$).
+
+### 3. Linguistic, Lexical & Graph Search Algorithms:
+- **Deterministic Finite State Machine (FSM) Grammar Decoding:** Century Clamping (`19xx/20xx`), calendar day/month validity verification, postal PIN 6-digit prefix trees, and alphanumeric department syntax trees.
+- **Viterbi / Dynamic Programming Lattice Search:** Optimal candidate beam search across top-5 probability lattices minimizing optical confusion cost.
+- **SymSpell $O(1)$ Deletion Table Indexing:** Sub-2ms dictionary retrieval via precomputed 1-edit delete hashes.
+- **OCR Visual Confusion Weighted Levenshtein Distance:** Matrix-weighted edit distance penalizing known optical confusion pairs (`O` <-> `0`, `I` <-> `1` <-> `l`, `S` <-> `5`, `B` <-> `8`, `Z` <-> `2`, `rn` <-> `m`, `cl` <-> `d`) at low costs ($0.15 - 0.25$) while non-confusions cost $1.00$.
+- **Neural Language Model Guided Constrained Decoding:** Low temperature ($T=0.1$) structured JSON extraction for contextual semantic ambiguity repair.
+
+### 4. Confidence Gating & Decision Algorithms:
+- **Weakest-Link Field Confidence Gating:** $C(F) = \min_{i=1 \dots N} P(c_i)$.
+- **Dynamic 3-Tier Thresholding:**
+  - High ($C(F) \ge 0.85$): Auto-approved zero-touch commit.
+  - Medium ($0.70 \le C(F) < 0.85$): Review recommended.
+  - Low ($C(F) < 0.70$): Review required / flagged.
