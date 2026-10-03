@@ -1,0 +1,82 @@
+[
+  {
+    "form_id": 1,
+    "filename": "sample_form_001_legible.png",
+    "file_path": "C:\\Users\\SRIRAM\\Documents\\GitHub\\OCR features for Hackathon\\data\\sample_forms\\sample_form_001_legible.png",
+    "difficulty": "legible",
+    "ground_truth": {
+      "applicant_name": "SRIRAM RAO",
+      "date_of_birth": "15/08/1995",
+      "postal_pin": "560034",
+      "application_code": "APP-8402",
+      "phone_number": "9845012345",
+      "declaration_text": "I hereby verify that all provided details are authentic.",
+      "sample_id": 1,
+      "difficulty": "legible"
+    }
+  },
+  {
+    "form_id": 2,
+    "filename": "sample_form_002_legible.png",
+    "file_path": "C:\\Users\\SRIRAM\\Documents\\GitHub\\OCR features for Hackathon\\data\\sample_forms\\sample_form_002_legible.png",
+    "difficulty": "legible",
+    "ground_truth": {
+      "applicant_name": "AARTI SHARMA",
+      "date_of_birth": "22/11/1988",
+      "postal_pin": "110001",
+      "application_code": "GOV-3914",
+      "phone_number": "9123456789",
+      "declaration_text": "All entries in this registration form are true and accurate.",
+      "sample_id": 2,
+      "difficulty": "legible"
+    }
+  },
+  {
+    "form_id": 3,
+    "filename": "sample_form_003_legible.png",
+    "file_path": "C:\\Users\\SRIRAM\\Documents\\GitHub\\OCR features for Hackathon\\data\\sample_forms\\sample_form_003_legible.png",
+    "difficulty": "legible",
+    "ground_truth": {
+      "applicant_name": "RAJESH KUMAR",
+      "date_of_birth": "04/07/2001",
+      "postal_pin": "400001",
+      "application_code": "REG-7721",
+      "phone_number": "9876543210",
+      "declaration_text": "I confirm submission of official verification documents.",
+      "sample_id": 3,
+      "difficulty": "legible"
+    }
+  },
+  {
+    "form_id": 4,
+    "filename": "sample_form_004_difficult.png",
+    "file_path": "C:\\Users\\SRIRAM\\Documents\\GitHub\\OCR features for Hackathon\\data\\sample_forms\\sample_form_004_difficult.png",
+    "difficulty": "difficult",
+    "ground_truth": {
+      "applicant_name": "MEERA IYER",
+      "date_of_birth": "30/03/1979",
+      "postal_pin": "600028",
+      "application_code": "ADM-5026",
+      "phone_number": "9444123890",
+      "declaration_text": "The information given above is complete to my knowledge.",
+      "sample_id": 4,
+      "difficulty": "difficult"
+    }
+  },
+  {
+    "form_id": 5,
+    "filename": "sample_form_005_difficult.png",
+    "file_path": "C:\\Users\\SRIRAM\\Documents\\GitHub\\OCR features for Hackathon\\data\\sample_forms\\sample_form_005_difficult.png",
+    "difficulty": "difficult",
+    "ground_truth": {
+      "applicant_name": "VIKRAM JOSHI",
+      "date_of_birth": "18/09/1992",
+      "postal_pin": "500081",
+      "application_code": "JIG-9180",
+      "phone_number": "9000112233",
+      "declaration_text": "I hereby certify my identity and postal location.",
+      "sample_id": 5,
+      "difficulty": "difficult"
+    }
+  }
+]

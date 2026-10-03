@@ -1,0 +1,103 @@
+{
+  "template_name": "Official Citizen Verification Form",
+  "canvas_width": 1200,
+  "canvas_height": 1650,
+  "fields": [
+    {
+      "id": "applicant_name",
+      "name": "Applicant Full Name (Block Letters)",
+      "type": "Name",
+      "is_comb_box": true,
+      "num_cells": 14,
+      "box": [
+        120,
+        315,
+        840,
+        60
+      ],
+      "cell_w": 60,
+      "cell_h": 60,
+      "description": "Applicant full legal name in block letters"
+    },
+    {
+      "id": "date_of_birth",
+      "name": "Date of Birth (DD/MM/YYYY)",
+      "type": "Date",
+      "is_comb_box": true,
+      "num_cells": 10,
+      "box": [
+        120,
+        445,
+        600,
+        60
+      ],
+      "cell_w": 60,
+      "cell_h": 60,
+      "description": "Date of birth in DD/MM/YYYY format"
+    },
+    {
+      "id": "postal_pin",
+      "name": "Postal PIN Code",
+      "type": "Pin",
+      "is_comb_box": true,
+      "num_cells": 6,
+      "box": [
+        120,
+        575,
+        360,
+        60
+      ],
+      "cell_w": 60,
+      "cell_h": 60,
+      "description": "6-digit postal PIN code"
+    },
+    {
+      "id": "application_code",
+      "name": "Application Tracking Code",
+      "type": "Code",
+      "is_comb_box": true,
+      "num_cells": 8,
+      "box": [
+        120,
+        705,
+        480,
+        60
+      ],
+      "cell_w": 60,
+      "cell_h": 60,
+      "description": "Alphanumeric code in format [A-Z]{3}-\\d{4}"
+    },
+    {
+      "id": "phone_number",
+      "name": "Primary Contact Number",
+      "type": "Phone",
+      "is_comb_box": true,
+      "num_cells": 10,
+      "box": [
+        120,
+        835,
+        600,
+        60
+      ],
+      "cell_w": 60,
+      "cell_h": 60,
+      "description": "10-digit primary mobile phone number"
+    },
+    {
+      "id": "declaration_text",
+      "name": "Handwritten Declaration & Confirmation",
+      "type": "Handwriting",
+      "is_comb_box": false,
+      "num_cells": 1,
+      "box": [
+        120,
+        995,
+        960,
+        100
+      ],
+      "cell_w": 960,
+      "cell_h": 100,
+      "description": "Handwritten confirmation and verification statement"
+    }
+  ]
+}

@@ -171,14 +171,20 @@ class FormFieldGrammarDecoder:
         if len(lattice) < 6:
             return raw_pred, (min(l[0][1] for l in lattice) if lattice else 0.5), corrections, False
 
+        min_conf = min(l[0][1] for l in lattice)
+
+        # If digits are confident (>= 0.75) and all digits, preserve verbatim
+        if min_conf >= 0.75 and raw_pred.isdigit() and len(raw_pred) == 6:
+            return raw_pred, min_conf, corrections, True
+
         # If known PIN directory loaded
         if not cls.PIN_DIRECTORY:
             cls.load_lexicons()
 
         if raw_pred in cls.PIN_DIRECTORY:
-            return raw_pred, min(l[0][1] for l in lattice), corrections, True
+            return raw_pred, min_conf, corrections, True
 
-        if cls.PIN_DIRECTORY:
+        if cls.PIN_DIRECTORY and min_conf < 0.75:
             best_pin = raw_pred
             best_score = -1e9
             for pin in cls.PIN_DIRECTORY:
@@ -200,7 +206,7 @@ class FormFieldGrammarDecoder:
             conf = 0.96 if best_score > -8.0 else 0.70
             return best_pin, conf, corrections, (best_score > -8.0)
 
-        return raw_pred, min(l[0][1] for l in lattice), corrections, True
+        return raw_pred, min_conf, corrections, True
 
     @classmethod
     def decode_code(
@@ -227,13 +233,19 @@ class FormFieldGrammarDecoder:
 
         raw_prefix = "".join([l[0][0] for l in prefix_lattice])
 
-        best_prefix = raw_prefix
-        if raw_prefix in cls.PREFIX_MAP:
-            best_prefix = raw_prefix
-            return cls.PREFIX_MAP[best_prefix], 0.96, corrections, True
+        # Extract suffix digits
+        suffix = []
+        for pos in range(sep_pos + 1, min(n, len(char_hypotheses))):
+            p_char, conf, alts = char_hypotheses[pos]
+            d_char = p_char if p_char.isdigit() else ([a[0] for a in alts if a[0].isdigit()] or ["0"])[0]
+            suffix.append(d_char)
+        suffix_str = "".join(suffix)
 
-        # Search matching prefix in registry
-        if cls.PREFIX_MAP:
+        if raw_prefix.isalpha():
+            best_prefix = raw_prefix
+
+        # Search matching prefix in registry if prefix is noisy
+        elif cls.PREFIX_MAP:
             best_sc = -1e9
             for pref in cls.PREFIX_MAP.keys():
                 if len(pref) == sep_pos:
@@ -249,20 +261,12 @@ class FormFieldGrammarDecoder:
                     if sc > best_sc:
                         best_sc = sc
                         best_prefix = pref
+            if best_prefix != raw_prefix:
+                corrections.append(f"Prefix Lexicon: Resolved prefix '{raw_prefix}' to '{best_prefix}'")
 
-            if best_prefix in cls.PREFIX_MAP:
-                corrections.append(f"Prefix Lexicon: Resolved prefix '{raw_prefix}' to registered '{best_prefix}'")
-                return cls.PREFIX_MAP[best_prefix], 0.95, corrections, True
-
-        # Fallback suffix digits
-        suffix = []
-        for pos in range(sep_pos + 1, min(n, len(char_hypotheses))):
-            p_char, conf, alts = char_hypotheses[pos]
-            d_char = p_char if p_char.isdigit() else ([a[0] for a in alts if a[0].isdigit()] or ["0"])[0]
-            suffix.append(d_char)
-
-        code_str = f"{best_prefix}-{(''.join(suffix))}"
-        return code_str, 0.92, corrections, True
+        code_str = f"{best_prefix}-{suffix_str}" if suffix_str else best_prefix
+        min_c = min([l[0][1] for l in prefix_lattice] + [c[1] for c in char_hypotheses[sep_pos+1:]]) if char_hypotheses else 0.85
+        return code_str, min_c, corrections, True
 
     @classmethod
     def decode_field(

@@ -38,6 +38,7 @@ from src.field_reader.trocr_ocr_engine import TrOCROCRPipeline
 from src.field_reader.handwriting_analyzer import get_handwriting_analyzer
 from src.field_reader.dictionary_engine import get_lexicon_engine
 from src.field_reader.llm_refiner import get_llm_refiner
+from src.field_reader.form_extractor import FormTemplateExtractor, CROPS_OUTPUT_DIR
 
 app = FastAPI(
     title="OC&HCR Enterprise Station",
@@ -64,6 +65,7 @@ trocr_ocr_pipeline = TrOCROCRPipeline()
 handwriting_analyzer = get_handwriting_analyzer()
 lexicon_engine = get_lexicon_engine()
 llm_refiner = get_llm_refiner()
+form_extractor = FormTemplateExtractor()
 
 # In-memory Audit Trail with disk persistence
 AUDIT_LOG_FILE = os.path.join(REPO_ROOT, "models", "audit_log.json")
@@ -129,6 +131,13 @@ class RefineRequest(BaseModel):
     confidence: Optional[float] = 0.0
     field_id: Optional[int] = None
     use_llm: bool = True
+
+
+class FormProcessRequest(BaseModel):
+    form_id: Optional[str] = "form_001"
+    image_base64: Optional[str] = None
+    conf_threshold: Optional[float] = 0.85
+    save_crops: Optional[bool] = True
 
 
 @app.get("/api/benchmark/fields")
@@ -565,6 +574,149 @@ def get_system_stats():
         "benchmark_fields_count": 150,
         "target_routing_rate": "< 8.0%"
     }
+
+
+# ==============================================================================
+# Full-Page Form Template Extraction & Cropped Fields Dataset (Deliverable 1)
+# ==============================================================================
+
+@app.get("/api/form/samples")
+def get_form_samples():
+    """Returns manifest of available sample forms (legible vs difficult)."""
+    manifest_path = os.path.join(REPO_ROOT, "data", "sample_forms", "sample_forms_manifest.json")
+    if not os.path.exists(manifest_path):
+        return {"samples": []}
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            samples = json.load(f)
+        for s in samples:
+            s["image_url"] = f"/api/form/sample-image/{s['filename']}"
+        return {"samples": samples, "total": len(samples)}
+    except Exception as e:
+        return {"samples": [], "error": str(e)}
+
+
+@app.get("/api/form/sample-image/{filename_or_id}")
+def get_sample_form_image(filename_or_id: str):
+    """Serves sample form image or blank template."""
+    if filename_or_id.lower() in ("blank", "template", "form_template_blank.png"):
+        tpl_path = os.path.join(REPO_ROOT, "data", "templates", "form_template_blank.png")
+        if os.path.exists(tpl_path):
+            return FileResponse(tpl_path, media_type="image/png")
+
+    samples_dir = os.path.join(REPO_ROOT, "data", "sample_forms")
+    # Direct filename match
+    direct_path = os.path.join(samples_dir, filename_or_id)
+    if os.path.exists(direct_path):
+        return FileResponse(direct_path, media_type="image/png")
+
+    # Match by ID (e.g. "1", "form_001", etc.)
+    clean_id = re.sub(r"[^\d]", "", filename_or_id)
+    if clean_id and os.path.exists(samples_dir):
+        num = int(clean_id)
+        for fname in os.listdir(samples_dir):
+            if f"{num:03d}" in fname and fname.endswith(".png"):
+                return FileResponse(os.path.join(samples_dir, fname), media_type="image/png")
+
+    raise HTTPException(status_code=404, detail=f"Sample form '{filename_or_id}' not found")
+
+
+@app.get("/api/form/template")
+def get_form_template_schema():
+    """Returns the canonical blank template schema and coordinates."""
+    schema_path = os.path.join(REPO_ROOT, "data", "templates", "template_schema.json")
+    if os.path.exists(schema_path):
+        with open(schema_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"error": "Template schema not found"}
+
+
+@app.post("/api/form/process")
+def process_full_form(req: FormProcessRequest):
+    """
+    Ingests a full-page filled form (either via image_base64 or form_id),
+    aligns document, crops individual fields, performs multi-model OCR,
+    and returns annotated image + structured field cards.
+    Fulfills: 'Prepare cropped field images and labels'.
+    """
+    img_bgr = None
+    form_id_str = req.form_id or "form_001"
+
+    if req.image_base64:
+        try:
+            b64_str = req.image_base64
+            if "," in b64_str:
+                b64_str = b64_str.split(",", 1)[1]
+            img_bgr = cv2.imdecode(np.frombuffer(base64.b64decode(b64_str), np.uint8), cv2.IMREAD_COLOR)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid image_base64: {e}")
+    else:
+        # Load sample form from disk
+        samples_dir = os.path.join(REPO_ROOT, "data", "sample_forms")
+        target_path = os.path.join(samples_dir, form_id_str)
+        if not os.path.exists(target_path) and os.path.exists(samples_dir):
+            clean_id = re.sub(r"[^\d]", "", form_id_str)
+            if clean_id:
+                num = int(clean_id)
+                for fname in os.listdir(samples_dir):
+                    if f"{num:03d}" in fname and fname.endswith(".png"):
+                        target_path = os.path.join(samples_dir, fname)
+                        break
+
+        if os.path.exists(target_path):
+            img_bgr = cv2.imread(target_path)
+            form_id_str = os.path.splitext(os.path.basename(target_path))[0]
+
+    if img_bgr is None:
+        raise HTTPException(status_code=400, detail="No valid form image provided or found")
+
+    result = form_extractor.process_form(
+        img_bgr,
+        form_id=form_id_str,
+        conf_threshold=req.conf_threshold or 0.85,
+        save_crops=req.save_crops if req.save_crops is not None else True
+    )
+
+    # Attach ground truth if matching sample form
+    manifest_path = os.path.join(REPO_ROOT, "data", "sample_forms", "sample_forms_manifest.json")
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+            for m in manifest:
+                if (m["filename"] in form_id_str or 
+                    f"form_{m['form_id']:03d}" in form_id_str or 
+                    f"sample_form_{m['form_id']:03d}" in form_id_str):
+                    gt = m.get("ground_truth", {})
+                    result["difficulty"] = m.get("difficulty", "legible")
+                    for f in result.get("fields", []):
+                        fkey = f["field_id"]
+                        if fkey in gt:
+                            f["ground_truth"] = gt[fkey]
+                            f["is_exact_match"] = (f["text"].strip().upper() == str(gt[fkey]).strip().upper())
+                    break
+        except Exception:
+            pass
+
+    return result
+
+
+@app.get("/api/form/crops/csv")
+def download_crops_csv():
+    """Serves the generated dataset CSV fulfilling 'Prepare cropped field images and labels'."""
+    csv_path = os.path.join(REPO_ROOT, "data", "extracted_crops", "extracted_fields_metadata.csv")
+    if not os.path.exists(csv_path):
+        # Generate on the fly if not yet generated
+        form_extractor.export_crops_dataset()
+
+    if os.path.exists(csv_path):
+        return FileResponse(
+            csv_path,
+            media_type="text/csv",
+            filename="extracted_fields_metadata.csv"
+        )
+    raise HTTPException(status_code=404, detail="Cropped fields metadata CSV not found")
+
 
 
 # Mount Static Web Files

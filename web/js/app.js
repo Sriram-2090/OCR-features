@@ -141,7 +141,7 @@ function FullscreenLoader() {
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  TOP NAVIGATION BAR                                                         */
 /* ─────────────────────────────────────────────────────────────────────────── */
-function TopNav({ onAudit }) {
+function TopNav({ currentView, setView, onAudit }) {
   return h('nav', { className: 'top-nav' },
     h('div', { className: 'brand-wrap' },
       h('div', { className: 'brand-logo' }, 'OC'),
@@ -150,14 +150,26 @@ function TopNav({ onAudit }) {
         h('div', { className: 'brand-sub' }, 'Enterprise Verification Station')
       )
     ),
+    h('div', { className: 'nav-mode-tabs' },
+      h('button', {
+        className: `nav-mode-btn ${currentView === 'form_scanner' ? 'active' : ''}`,
+        onClick: () => setView('form_scanner')
+      }, '📋 Full Form Extractor'),
+      h('button', {
+        className: `nav-mode-btn ${currentView === 'station' ? 'active' : ''}`,
+        onClick: () => setView('station')
+      }, '🔬 Single Field Station')
+    ),
     h('div', { className: 'nav-right' },
+      h('a', {
+        href: '/api/form/crops/csv',
+        download: 'extracted_fields_metadata.csv',
+        className: 'btn-csv-download',
+        style: { textDecoration: 'none', padding: '6px 12px', fontSize: 12 }
+      }, '⬇ Crops CSV'),
       h('div', { className: 'live-badge' },
         h('div', { className: 'live-dot' }),
         'FastAPI Engine Online'
-      ),
-      h('div', { className: 'live-badge', style: { borderColor: 'rgba(34, 197, 94, 0.35)', color: 'var(--green-dk)', background: 'rgba(34, 197, 94, 0.08)' } },
-        h('div', { className: 'live-dot', style: { background: 'var(--green)', boxShadow: '0 0 8px rgba(34,197,94,0.6)' } }),
-        'Neural Refinement Engine: Ready'
       ),
       h('button', { className: 'btn-nav', onClick: onAudit }, '📋 Audit Log')
     )
@@ -1523,15 +1535,371 @@ function AuditModal({ onClose }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/*  CONFIDENCE RATING HELPER (Rule Compliant)                                 */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function getConfidenceInfo(conf) {
+  const pct = Math.round((conf || 0) * 100);
+  if (pct >= 85) {
+    return {
+      pct,
+      term: 'High Confidence',
+      badgeClass: 'badge-high',
+      color: 'var(--green-dk)'
+    };
+  } else if (pct >= 70) {
+    return {
+      pct,
+      term: 'Medium Confidence',
+      badgeClass: 'badge-med',
+      color: 'var(--amber-dk)'
+    };
+  } else {
+    return {
+      pct,
+      term: 'Low Confidence',
+      badgeClass: 'badge-low',
+      color: 'var(--red)'
+    };
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  FULL-PAGE FORM TEMPLATE SCANNER & CROPPED FIELDS (Deliverable 1)           */
+/* ─────────────────────────────────────────────────────────────────────────── */
+function FullFormScannerPage() {
+  const [samples, setSamples] = useState([]);
+  const [selectedFormId, setSelectedFormId] = useState('form_001');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [formData, setFormData] = useState(null);
+  const [verifiedTexts, setVerifiedTexts] = useState({});
+  const [highlightedField, setHighlightedField] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // 1. Fetch sample forms manifest on mount
+  useEffect(() => {
+    fetch('/api/form/samples')
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.samples && d.samples.length > 0) {
+          setSamples(d.samples);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // 2. Process form function
+  const runFormExtraction = useCallback((formId, base64Image = null) => {
+    setIsProcessing(true);
+    const payload = {};
+    if (base64Image) {
+      payload.image_base64 = base64Image;
+      payload.form_id = 'custom_upload';
+    } else {
+      payload.form_id = formId;
+    }
+
+    fetch('/api/form/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(r => {
+        if (!r.ok) throw new Error('Form processing failed');
+        return r.json();
+      })
+      .then(data => {
+        setFormData(data);
+        const initialTexts = {};
+        (data.fields || []).forEach(f => {
+          initialTexts[f.field_id] = f.text;
+        });
+        setVerifiedTexts(initialTexts);
+      })
+      .catch(err => {
+        console.error('Error processing form:', err);
+      })
+      .finally(() => {
+        setIsProcessing(false);
+      });
+  }, []);
+
+  // Run initial extraction for Form 1 on mount
+  useEffect(() => {
+    runFormExtraction('form_001');
+  }, [runFormExtraction]);
+
+  const handleSelectSample = (sample) => {
+    const fid = `form_${String(sample.form_id).padStart(3, '0')}`;
+    setSelectedFormId(fid);
+    runFormExtraction(fid);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedFormId('custom_upload');
+      runFormExtraction('custom_upload', reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleTextChange = (fieldId, val) => {
+    setVerifiedTexts(prev => ({ ...prev, [fieldId]: val }));
+  };
+
+  const handleConfirmField = (field) => {
+    const vText = verifiedTexts[field.field_id] !== undefined ? verifiedTexts[field.field_id] : field.text;
+    fetch('/api/audit/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        field_id: field.field_id,
+        field_type: field.field_type,
+        original_text: field.text,
+        verified_text: vText,
+        action: (vText === field.text) ? 'ACCEPT' : 'CORRECT',
+        status: 'APPROVED',
+        min_conf: field.confidence,
+        operator_latency_s: 1.2,
+        notes: 'Verified in Full Form Extractor'
+      })
+    }).then(() => {
+      setCopiedId(field.field_id);
+      setTimeout(() => setCopiedId(null), 1500);
+    });
+  };
+
+  return h('div', { className: 'form-scanner-page' },
+    // Hero Header
+    h('div', { className: 'form-scanner-hero' },
+      h('div', null,
+        h('div', { className: 'form-hero-title' },
+          h('span', null, '📋'),
+          'Full-Page Form Template Extractor & OCR'
+        ),
+        h('div', { className: 'form-hero-sub' },
+          'Technical Deliverable 1: Ingest full handwritten form documents, register coordinates, extract cropped field images & perform end-to-end OCR.'
+        )
+      ),
+      h('div', { className: 'form-hero-actions' },
+        h('a', {
+          href: '/api/form/crops/csv',
+          download: 'extracted_fields_metadata.csv',
+          className: 'btn-csv-download'
+        }, '⬇ Download Cropped Fields Dataset (CSV)'),
+        h('button', {
+          className: 'btn-outline',
+          style: { padding: '8px 14px', fontSize: 13 },
+          onClick: () => fileInputRef.current && fileInputRef.current.click()
+        }, '📤 Upload Custom Form Scan'),
+        h('input', {
+          ref: fileInputRef,
+          type: 'file',
+          accept: 'image/*',
+          style: { display: 'none' },
+          onChange: handleFileUpload
+        })
+      )
+    ),
+
+    // Samples Ribbon
+    h('div', { className: 'samples-ribbon' },
+      h('div', { style: { fontSize: 12, fontWeight: 700, color: 'var(--tx3)', whiteSpace: 'nowrap' } }, 'Select Sample Form:'),
+      samples.map(s => {
+        const fid = `form_${String(s.form_id).padStart(3, '0')}`;
+        const isActive = (selectedFormId === fid);
+        const isLegible = (s.difficulty === 'legible');
+        return h('button', {
+          key: s.form_id,
+          className: `sample-chip ${isActive ? 'active' : ''}`,
+          onClick: () => handleSelectSample(s)
+        },
+          h('span', null, `Form ${s.form_id}: ${(s.ground_truth && s.ground_truth.applicant_name) || s.filename}`),
+          h('span', { className: `chip-diff ${isLegible ? 'diff-legible' : 'diff-difficult'}` }, s.difficulty)
+        );
+      }),
+      h('button', {
+        className: `sample-chip ${selectedFormId === 'blank' ? 'active' : ''}`,
+        onClick: () => {
+          setSelectedFormId('blank');
+          runFormExtraction('blank');
+        }
+      },
+        h('span', null, '📄 Blank Form Template'),
+        h('span', { className: 'chip-diff diff-blank' }, 'Canonical')
+      )
+    ),
+
+    // Typewriter Loader when processing
+    isProcessing && h(TypewriterLoader, {
+      label: 'Extracting Form Fields & Running Multi-Model OCR…',
+      sublabel: 'Aligning document to canonical 1200×1650 geometry, slicing comb-box cells, and executing Character CNN & TrOCR inference…'
+    }),
+
+    // Split Layout: Left = Full Document with Bounding Boxes; Right = Cropped Fields & OCR Results
+    !isProcessing && formData && h('div', { className: 'form-scanner-split' },
+      // Left: Document Visualizer
+      h('div', { className: 'form-doc-panel' },
+        h('div', { className: 'panel-header-row' },
+          h('div', { className: 'panel-title' },
+            h('span', null, '🖼️'),
+            'Full Form Document (with Live Field Bounding Boxes)'
+          ),
+          h('div', { style: { fontSize: 12, color: 'var(--tx3)', fontWeight: 600 } },
+            '1200×1650 canonical'
+          )
+        ),
+        h('div', { className: 'doc-viewport' },
+          formData.annotated_form_b64
+            ? h('img', {
+                src: formData.annotated_form_b64,
+                alt: 'Annotated Form Document',
+                className: 'doc-canvas-img'
+              })
+            : h('div', { style: { padding: 40, textAlign: 'center', color: 'var(--tx3)' } }, 'Document loading…')
+        )
+      ),
+
+      // Right: Cropped Fields and OCR Cards
+      h('div', { className: 'form-crops-panel' },
+        // Summary Header Card
+        h('div', { className: 'form-status-summary-card' },
+          h('div', null,
+            h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 } },
+              h('span', {
+                style: {
+                  fontSize: 12,
+                  fontWeight: 800,
+                  padding: '3px 10px',
+                  borderRadius: 'var(--r-full)',
+                  background: formData.overall_status === 'APPROVED' ? 'var(--green-lt)' : 'var(--amber-lt)',
+                  color: formData.overall_status === 'APPROVED' ? 'var(--green-dk)' : 'var(--amber-dk)',
+                  border: `1px solid ${formData.overall_status === 'APPROVED' ? 'var(--green-bd)' : 'var(--amber-bd)'}`
+                }
+              }, formData.overall_status === 'APPROVED' ? '✓ FULL FORM APPROVED' : '⚠ OPERATOR REVIEW REQUIRED'),
+              formData.difficulty && h('span', {
+                className: `chip-diff ${formData.difficulty === 'legible' ? 'diff-legible' : 'diff-difficult'}`
+              }, formData.difficulty)
+            ),
+            h('div', { style: { fontSize: 13, color: 'var(--tx3)' } },
+              `${formData.approved_count || 0} of ${formData.total_fields || 6} fields zero-touch auto-approved`
+            )
+          ),
+          h('div', { className: 'form-metrics-row' },
+            h('div', { className: 'form-metric-item' },
+              h('div', { className: 'form-metric-lbl' }, 'Mean Conf'),
+              h('div', { className: 'form-metric-val', style: { color: getConfidenceInfo(formData.overall_confidence).color } },
+                `${((formData.overall_confidence || 0) * 100).toFixed(1)}%`
+              )
+            ),
+            h('div', { className: 'form-metric-item' },
+              h('div', { className: 'form-metric-lbl' }, 'Latency'),
+              h('div', { className: 'form-metric-val', style: { color: 'var(--blue)' } },
+                `${formData.latency_ms || 32} ms`
+              )
+            )
+          )
+        ),
+
+        // List of Cropped Field Cards
+        (formData.fields || []).map((f, idx) => {
+          const confInfo = getConfidenceInfo(f.confidence);
+          const currentText = verifiedTexts[f.field_id] !== undefined ? verifiedTexts[f.field_id] : f.text;
+          const isExact = f.is_exact_match;
+          const isCopied = (copiedId === f.field_id);
+
+          return h('div', {
+            key: f.field_id || idx,
+            id: `crop-${f.field_id}`,
+            className: `field-crop-card ${highlightedField === f.field_id ? 'highlighted' : ''}`,
+            onMouseEnter: () => setHighlightedField(f.field_id),
+            onMouseLeave: () => setHighlightedField(null)
+          },
+            // Card Top Row
+            h('div', { className: 'crop-card-top' },
+              h('div', { className: 'crop-field-name' },
+                `${idx + 1}. ${f.field_name}`
+              ),
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+                h('div', { className: 'crop-type-chip' },
+                  f.is_comb_box ? `COMB-BOX (${f.glyphs ? f.glyphs.length : 1} CELLS)` : 'FREEFORM CURSIVE'
+                ),
+                h('div', { className: `dynamic-conf-badge ${confInfo.badgeClass}` },
+                  `${confInfo.pct}% · ${confInfo.term}`
+                )
+              )
+            ),
+
+            // Content Grid (Left: Cropped Image, Right: OCR Prediction & Input)
+            h('div', { className: 'crop-content-grid' },
+              // Cropped Field Image
+              h('div', { className: 'crop-img-container' },
+                f.crop_b64
+                  ? h('img', {
+                      src: f.crop_b64,
+                      alt: f.field_name,
+                      className: 'crop-preview-thumb'
+                    })
+                  : h('div', { style: { fontSize: 12, color: 'var(--tx3)' } }, 'Crop loading…')
+              ),
+
+              // OCR details & verification
+              h('div', { className: 'crop-ocr-details' },
+                h('div', { className: 'crop-text-row' },
+                  h('input', {
+                    type: 'text',
+                    value: currentText,
+                    onChange: (e) => handleTextChange(f.field_id, e.target.value),
+                    className: 'crop-text-input'
+                  }),
+                  h('button', {
+                    className: 'btn-primary',
+                    style: { padding: '8px 14px', fontSize: 13, background: isCopied ? 'var(--green-dk)' : undefined },
+                    onClick: () => handleConfirmField(f)
+                  }, isCopied ? '✓ Verified!' : '✓ Confirm')
+                ),
+                f.ground_truth !== undefined && h('div', { className: 'gt-match-tag' },
+                  h('span', null, `Ground Truth: "${f.ground_truth}"`),
+                  h('span', { className: isExact ? 'gt-exact-yes' : 'gt-exact-no' },
+                    isExact ? '✓ 100% Exact Match' : '⚠ Discrepancy'
+                  )
+                )
+              )
+            ),
+
+            // Comb-Box Glyphs Ribbon (if comb-box with cell glyphs)
+            f.is_comb_box && f.glyphs && f.glyphs.length > 0 && h('div', { className: 'cells-ribbon' },
+              f.glyphs.map((g, gi) =>
+                h('div', {
+                  key: gi,
+                  className: `cell-char-box ${g.char === ' ' ? 'blank' : ''}`,
+                  title: `Cell ${gi + 1}: '${g.char}' (${Math.round(g.conf * 100)}%)`
+                },
+                  h('div', null, g.char === ' ' ? '·' : g.char),
+                  h('div', { style: { fontSize: 9, color: 'var(--tx3)' } }, `${Math.round(g.conf * 100)}%`)
+                )
+              )
+            )
+          );
+        })
+      )
+    )
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /*  ROOT APP COMPONENT                                                         */
 /* ─────────────────────────────────────────────────────────────────────────── */
 function App() {
   const [bootLoading, setBootLoading] = useState(true);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [currentView, setCurrentView] = useState('form_scanner');
 
-  // Exact kind-mole-87 loader shown during boot sequence
   useEffect(() => {
-    const t = setTimeout(() => setBootLoading(false), 2000);
+    const t = setTimeout(() => setBootLoading(false), 1200);
     return () => clearTimeout(t);
   }, []);
 
@@ -1542,11 +1910,14 @@ function App() {
   return h(React.Fragment, null,
     h('div', { className: 'bg-ambient' }),
     h('div', { className: 'bg-grid' }),
-    h(TopNav, { onAudit: () => setAuditOpen(true) }),
-    h(StationPage),
+    h(TopNav, { currentView, setView: setCurrentView, onAudit: () => setAuditOpen(true) }),
+    currentView === 'form_scanner'
+      ? h(FullFormScannerPage)
+      : h(StationPage),
     auditOpen && h(AuditModal, { onClose: () => setAuditOpen(false) })
   );
 }
 
 // Mount React 18 Application
 ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+
