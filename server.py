@@ -515,5 +515,5 @@ if os.path.exists(WEB_DIR):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    print(f"\n\033[1;32m[FormFlow OCR]\033[0m Starting Enterprise Server on http://127.0.0.1:{port}")
+    print(f"\n\033[1;32m[OC&HCR]\033[0m Starting Enterprise Verification Station on http://127.0.0.1:{port}")
     uvicorn.run("server:app", host="127.0.0.1", port=port, reload=False, log_level="info")
