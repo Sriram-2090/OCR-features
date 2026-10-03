@@ -1,5 +1,5 @@
 /**
- * FormFlow OCR – Enterprise Architecture Studio & Verification Station
+ * OC&HCR – Enterprise Architecture Studio & Verification Station
  * Next-Gen React Architecture (Light Theme Edition)
  *
  * Requirements satisfied:
@@ -90,11 +90,11 @@ const EDGES = [
 
 /* ─── Benchmark Comparison Matrix Data ────────────────────────────────────── */
 const BENCHMARK_DATA = [
-  { field: 'Date (DD/MM/YYYY)',  n: 50,  formflow: 96.1, tesseract: 78.4, aws: 88.2, google: 91.3 },
-  { field: 'Postal PIN Code',    n: 30,  formflow: 98.4, tesseract: 83.1, aws: 92.0, google: 94.8 },
-  { field: 'Alphanumeric Code',  n: 40,  formflow: 94.7, tesseract: 72.6, aws: 87.4, google: 90.1 },
-  { field: 'Mixed Freeform Ink', n: 30,  formflow: 91.3, tesseract: 61.0, aws: 83.7, google: 88.5 },
-  { field: 'Overall Benchmark',  n: 150, formflow: 95.4, tesseract: 74.6, aws: 88.9, google: 91.7, sota: true },
+  { field: 'Date (DD/MM/YYYY)',  n: 50,  ochcr: 96.1, tesseract: 78.4, aws: 88.2, google: 91.3 },
+  { field: 'Postal PIN Code',    n: 30,  ochcr: 98.4, tesseract: 83.1, aws: 92.0, google: 94.8 },
+  { field: 'Alphanumeric Code',  n: 40,  ochcr: 94.7, tesseract: 72.6, aws: 87.4, google: 90.1 },
+  { field: 'Mixed Freeform Ink', n: 30,  ochcr: 91.3, tesseract: 61.0, aws: 83.7, google: 88.5 },
+  { field: 'Overall Benchmark',  n: 150, ochcr: 95.4, tesseract: 74.6, aws: 88.9, google: 91.7, sota: true },
 ];
 
 /* ─── Fallback Sample Fields ──────────────────────────────────────────────── */
@@ -132,8 +132,8 @@ function FullscreenLoader() {
       h('div', { className: 'keyboard' })
     ),
     h('div', { style: { textAlign: 'center' } },
-      h('div', { className: 'loader-label' }, 'FormFlow OCR Engine Initializing'),
-      h('div', { className: 'loader-subtext' }, 'Loading 150 benchmark test fields & 39-class neural weights…')
+      h('div', { className: 'loader-label' }, 'OC&HCR Engine Initializing'),
+      h('div', { className: 'loader-subtext' }, 'Loading benchmark test fields & neural recognition weights…')
     )
   );
 }
@@ -141,45 +141,28 @@ function FullscreenLoader() {
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  TOP NAVIGATION BAR                                                         */
 /* ─────────────────────────────────────────────────────────────────────────── */
-function TopNav({ view, setView, onAudit }) {
-  const tabs = [
-    { id: 'station',       icon: '🔬', label: 'Live Station' },
-    { id: 'architecture',  icon: '🏗️', label: 'Architecture & Benchmark' },
-    { id: 'overview',      icon: '🏠', label: 'Overview' },
-  ];
-
+function TopNav({ onAudit }) {
   return h('nav', { className: 'top-nav' },
     h('div', { className: 'brand-wrap' },
-      h('div', { className: 'brand-logo' }, 'FF'),
+      h('div', { className: 'brand-logo' }, 'OC'),
       h('div', null,
-        h('div', { className: 'brand-name' }, 'FormFlow OCR'),
-        h('div', { className: 'brand-sub' }, 'Enterprise v2.1.0')
-      )
-    ),
-    h('div', { className: 'nav-tabs' },
-      tabs.map(t =>
-        h('button', {
-          key: t.id,
-          className: `nav-tab${view === t.id ? ' active' : ''}`,
-          onClick: () => setView(t.id),
-        }, t.icon, ' ', t.label)
+        h('div', { className: 'brand-name' }, 'OC&HCR'),
+        h('div', { className: 'brand-sub' }, 'Enterprise Verification Station')
       )
     ),
     h('div', { className: 'nav-right' },
       h('div', { className: 'live-badge' },
         h('div', { className: 'live-dot' }),
-        'FastAPI Daemon Online'
+        'FastAPI Engine Online'
       ),
-      h('div', { className: 'live-badge', style: { borderColor: 'rgba(56, 189, 248, 0.35)', color: 'var(--brand)', background: 'rgba(56, 189, 248, 0.08)' } },
-        h('div', { className: 'live-dot', style: { background: 'var(--brand)', boxShadow: '0 0 8px var(--brand)' } }),
-        'Local LLM: Qwen 2.5'
+      h('div', { className: 'live-badge', style: { borderColor: 'rgba(34, 197, 94, 0.35)', color: 'var(--green-dk)', background: 'rgba(34, 197, 94, 0.08)' } },
+        h('div', { className: 'live-dot', style: { background: 'var(--green)', boxShadow: '0 0 8px rgba(34,197,94,0.6)' } }),
+        'Neural Refinement Engine: Ready'
       ),
       h('button', { className: 'btn-nav', onClick: onAudit }, '📋 Audit Log')
     )
   );
 }
-
-
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  VERIFICATION STATION (PRIMARY VIEW)                                        */
@@ -188,7 +171,7 @@ function StationPage() {
   const [fields, setFields] = useState(FALLBACK_FIELDS);
   const [selectedFieldId, setSelectedFieldId] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMsg, setProcessingMsg] = useState("Running Multi-Model Inference…");
+  const [processingMsg, setProcessingMsg] = useState('Running Multi-Model Inference…');
   const [prediction, setPrediction] = useState(null);
   const [txn, setTxn] = useState('');
   const [imgSrc, setImgSrc] = useState(null);
@@ -207,10 +190,10 @@ function StationPage() {
   const [procStageIndex, setProcStageIndex] = useState(0);
 
   const STAGES = useMemo(() => [
-    { title: "Stage 1/4: Ink Analysis & Morphological Preprocessing", desc: "Removing background noise & segmenting handwriting contours…" },
-    { title: "Stage 2/4: Neural Recognition (TrOCR & SOTA Tri-Engine)", desc: "Executing line-level Vision Transformer & deep CNN feature extraction…" },
-    { title: "Stage 3/4: Tier-1 Fast Lexicon & OCR Confusion Repair", desc: "Checking SymSpell O(1) dictionary & visual character substitution matrix…" },
-    { title: "Stage 4/4: Tier-2 Local LLM Semantic Post-Correction", desc: "Validating language semantics & formatting via local Qwen 2.5 on RTX GPU…" }
+    { title: 'Stage 1/4: Ink Analysis & Morphological Preprocessing', desc: 'Removing background noise & segmenting handwriting contours…' },
+    { title: 'Stage 2/4: Neural Recognition (TrOCR & SOTA Tri-Engine)', desc: 'Executing line-level Vision Transformer & deep CNN feature extraction…' },
+    { title: 'Stage 3/4: Tier-1 Fast Lexicon & OCR Confusion Repair', desc: 'Checking SymSpell O(1) dictionary & visual character substitution matrix…' },
+    { title: 'Stage 4/4: Tier-2 AI Semantic Post-Correction', desc: 'Validating language semantics & formatting via neural language model…' }
   ], []);
 
   useEffect(() => {
@@ -229,10 +212,10 @@ function StationPage() {
   // 1. Fetch benchmark fields catalog on mount
   useEffect(() => {
     fetch('/api/benchmark/fields')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data && data.fields && data.fields.length > 0) {
-          setFields(data.fields);
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.fields && d.fields.length > 0) {
+          setFields(d.fields);
         }
       })
       .catch(() => {});
@@ -470,8 +453,40 @@ function StationPage() {
   const glyphs = (prediction && prediction.glyphs) ? prediction.glyphs : [];
   const activeGlyph = glyphs[glyphSel];
   const isFlagged = prediction ? prediction.status === 'FLAGGED' : false;
-  const meanConf = prediction ? prediction.mean_conf : 0.95;
+  const meanConf = prediction ? (prediction.mean_conf ?? prediction.confidence ?? 0.95) : 0.95;
   const totalVerified = accepted.length + corrected.length + rejected.length;
+
+  // Dynamic Confidence Tier & Color Calculation (High, Medium, Low)
+  const confPct = Math.round(meanConf * 100);
+  let confTier = 'high';
+  let confTerm = 'High Confidence';
+  let confShort = 'HIGH';
+  let confColor = 'var(--green-dk, #15803d)';
+  let confBg = 'rgba(34, 197, 94, 0.12)';
+  let confBd = 'rgba(34, 197, 94, 0.35)';
+
+  if (confPct >= 85) {
+    confTier = 'high';
+    confTerm = 'High Confidence';
+    confShort = 'HIGH';
+    confColor = 'var(--green-dk, #15803d)';
+    confBg = 'rgba(34, 197, 94, 0.12)';
+    confBd = 'rgba(34, 197, 94, 0.35)';
+  } else if (confPct >= 70) {
+    confTier = 'medium';
+    confTerm = 'Medium Confidence';
+    confShort = 'MEDIUM';
+    confColor = 'var(--amber-dk, #b45309)';
+    confBg = 'rgba(255, 149, 0, 0.12)';
+    confBd = 'rgba(255, 149, 0, 0.35)';
+  } else {
+    confTier = 'low';
+    confTerm = 'Low Confidence';
+    confShort = 'LOW';
+    confColor = 'var(--red, #b91c1c)';
+    confBg = 'rgba(255, 59, 48, 0.12)';
+    confBd = 'rgba(255, 59, 48, 0.35)';
+  }
 
   return h('div', { className: 'page', onPaste: handlePaste },
     /* Hidden file input for direct file upload */
@@ -492,7 +507,7 @@ function StationPage() {
       h('div', null,
         h('h1', null, '🔬 Live Verification Station'),
         h('div', { style: { fontSize: 13, color: 'var(--tx3)', marginTop: 4 } },
-          'Handwritten form field review · Automated routing for low confidence (<85%)'
+          'Handwritten form field review · Dynamic confidence verification & neural refinement'
         )
       ),
       h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
@@ -657,16 +672,16 @@ function StationPage() {
         /* Metadata Grid */
         h('div', { className: 'meta-grid' },
           [
-            { k: 'Architecture', v: 'Option 1: TrOCR + Spatial Alignment' },
-            { k: 'Mean Confidence', v: `${(meanConf * 100).toFixed(1)}%` },
+            { k: 'Architecture', v: 'Universal Adaptive OCR' },
+            { k: 'Mean Confidence', v: `${(meanConf * 100).toFixed(1)}% (${confShort})`, color: confColor },
             { k: 'Tokens Aligned', v: glyphs.length },
-            { k: 'Routing Status', v: isFlagged ? '⚠️ Review Triggered' : '✅ Auto-Approved' },
+            { k: 'Routing Status', v: confTier === 'high' ? '✅ Auto-Approved' : (confTier === 'medium' ? '⚠️ Review Recommended' : '🚨 Review Required'), color: confColor },
             { k: 'Comb-Box Mode', v: 'Morphology Active' },
             { k: 'Operator Latency', v: fmtTime(sec) },
           ].map((m, i) =>
             h('div', { key: i, className: 'meta-cell' },
               h('div', { className: 'meta-key' }, m.k),
-              h('div', { className: 'meta-val' }, m.v)
+              h('div', { className: 'meta-val', style: m.color ? { color: m.color, fontWeight: 800 } : {} }, m.v)
             )
           )
         )
@@ -689,7 +704,7 @@ function StationPage() {
             }),
             'Pipeline Transcription'
           ),
-          h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontSize: 13, fontWeight: 700, color: 'var(--tx3)' } },
+          h('div', { style: { fontFamily: 'var(--font-main)', fontSize: 13, fontWeight: 700, color: 'var(--tx3)' } },
             isProcessing ? 'Processing…' : `Min: ${prediction ? (prediction.min_conf * 100).toFixed(1) : '95.0'}%`
           )
         ),
@@ -747,21 +762,42 @@ function StationPage() {
           /* State 2: Processing Complete - Show Verified Transcription */
           prediction ? h(React.Fragment, null,
             /* Decision Banner */
-            h('div', { className: `decision-banner ${isFlagged ? 'flagged' : 'approved'}` },
+            h('div', {
+              className: `decision-banner conf-${confTier}`,
+              style: {
+                background: confBg,
+                borderColor: confBd,
+                color: confColor
+              }
+            },
               h('div', { className: 'banner-left' },
-                h('div', { className: 'banner-icon' }, isFlagged ? '⚠️' : '✅'),
+                h('div', { className: 'banner-icon' }, confTier === 'high' ? '✅' : (confTier === 'medium' ? '⚠️' : '🚨')),
                 h('div', null,
-                  h('div', { className: 'banner-title' },
-                    isFlagged ? 'Needs Operator Verification' : 'High Confidence · Auto-Approved'
+                  h('div', { className: 'banner-title', style: { color: confColor } },
+                    `${confTerm} · ${confTier === 'high' ? 'Auto-Approved' : 'Needs Operator Verification'}`
                   ),
                   h('div', { className: 'banner-reason' },
                     prediction && prediction.flag_reasons && prediction.flag_reasons.length > 0
                       ? prediction.flag_reasons.join(' · ')
-                      : 'All character confidence thresholds and FSM grammar checks passed'
+                      : (confTier === 'high'
+                          ? 'All character confidence thresholds and FSM grammar checks passed'
+                          : (confTier === 'medium'
+                              ? 'Marginal character certainty — operator verification recommended'
+                              : 'Low character certainty detected (<70%) — manual verification required'))
                   )
                 )
               ),
-              h('div', { className: 'banner-conf' }, `${(meanConf * 100).toFixed(0)}%`)
+              h('div', { className: 'banner-conf-badge' },
+                h('span', {
+                  className: 'banner-conf-term',
+                  style: {
+                    background: confBg,
+                    color: confColor,
+                    border: `1.5px solid ${confBd}`
+                  }
+                }, confShort),
+                h('span', { className: 'banner-conf-pct', style: { color: confColor } }, `${confPct}%`)
+              )
             ),
 
             /* Transcription Input Header with Lexicon Badge & AI Refine button */
@@ -795,10 +831,10 @@ function StationPage() {
                     color: 'var(--brand)',
                     background: 'rgba(56, 189, 248, 0.08)'
                   },
-                  title: 'Query Local Qwen 2.5 LLM for semantic OCR post-correction',
+                  title: 'Query neural language model for semantic OCR post-correction',
                   disabled: isProcessing || llmRefining || !txn,
                   onClick: handleAIRefine,
-                }, llmRefining ? '⚡ Refining…' : '✨ AI Refine (Qwen 2.5)'),
+                }, llmRefining ? '⚡ Refining…' : '✨ AI Refine'),
                 h('button', {
                   className: 'btn-nav',
                   style: { fontSize: 11.5, padding: '3px 10px', height: 26, display: 'inline-flex', alignItems: 'center', gap: 4 },
@@ -836,7 +872,7 @@ function StationPage() {
               h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--tx1)' } },
                   h('span', null, '🤖'),
-                  'Local Qwen 2.5 7B Verification',
+                  'Neural Semantic Verification',
                   prediction.llm_applied
                     ? h('span', {
                         style: {
@@ -860,22 +896,22 @@ function StationPage() {
                       }, '✓ Confirmed Accurate')
                 ),
                 prediction.pipeline_stages && h('div', {
-                  style: { fontSize: 11, color: 'var(--tx3)', fontFamily: '"JetBrains Mono", monospace' }
+                  style: { fontSize: 11, color: 'var(--tx3)', fontFamily: 'var(--font-main)' }
                 }, `${prediction.pipeline_stages.total_ms}ms total`)
               ),
               /* Comparison Pills */
               h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, fontSize: 11.5 } },
                 h('div', { style: { background: 'rgba(241, 245, 249, 0.7)', padding: '6px 10px', borderRadius: 6 } },
                   h('div', { style: { color: 'var(--tx3)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' } }, 'Raw Neural OCR'),
-                  h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontWeight: 600, marginTop: 2 } }, prediction.raw_ocr_text || '—')
+                  h('div', { style: { fontFamily: 'var(--font-main)', fontWeight: 600, marginTop: 2 } }, prediction.raw_ocr_text || '—')
                 ),
                 h('div', { style: { background: 'rgba(241, 245, 249, 0.7)', padding: '6px 10px', borderRadius: 6 } },
                   h('div', { style: { color: 'var(--tx3)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' } }, 'Tier-1 Lexicon'),
-                  h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontWeight: 600, marginTop: 2 } }, prediction.tier1_text || '—')
+                  h('div', { style: { fontFamily: 'var(--font-main)', fontWeight: 600, marginTop: 2 } }, prediction.tier1_text || '—')
                 ),
                 h('div', { style: { background: 'rgba(238, 242, 255, 0.7)', padding: '6px 10px', borderRadius: 6 } },
                   h('div', { style: { color: 'var(--brand)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' } }, 'Final Verified Text'),
-                  h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontWeight: 700, color: 'var(--brand)', marginTop: 2 } }, prediction.text || '—')
+                  h('div', { style: { fontFamily: 'var(--font-main)', fontWeight: 700, color: 'var(--brand)', marginTop: 2 } }, prediction.text || '—')
                 )
               ),
               prediction.llm_reasoning && h('div', {
@@ -912,7 +948,7 @@ function StationPage() {
               h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
                 h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: 'var(--brand)' } },
                   h('span', null, '✨'),
-                  'Local Qwen 2.5 7B Suggestion',
+                  'Neural AI Suggestion',
                   aiSuggestion.tier2_llm && aiSuggestion.tier2_llm.latency_ms && h('span', {
                     style: {
                       fontSize: 10,
@@ -939,7 +975,7 @@ function StationPage() {
                   }, '✓ Apply Suggestion')
                 )
               ),
-              h('div', { style: { fontFamily: '"JetBrains Mono", monospace', fontSize: 16, fontWeight: 700, color: 'var(--tx1)', letterSpacing: '0.04em' } },
+              h('div', { style: { fontFamily: 'var(--font-main)', fontSize: 16, fontWeight: 700, color: 'var(--tx1)', letterSpacing: '0.04em' } },
                 aiSuggestion.recommended_text
               ),
               aiSuggestion.tier2_llm && aiSuggestion.tier2_llm.reasoning && h('div', { style: { fontSize: 11.5, color: 'var(--tx2)', lineHeight: 1.4 } },
@@ -1253,7 +1289,7 @@ function BenchMatrix() {
         h('table', { className: 'bench-table' },
           h('thead', null,
             h('tr', null,
-              ['Field Category', 'Test Fields (N)', 'FormFlow OCR (Ours)', 'Tesseract 5', 'AWS Textract', 'Google DocAI'].map(th =>
+              ['Field Category', 'Test Fields (N)', 'OC&HCR (Ours)', 'Tesseract 5', 'AWS Textract', 'Google DocAI'].map(th =>
                 h('th', { key: th }, th)
               )
             )
@@ -1263,7 +1299,7 @@ function BenchMatrix() {
               h('tr', { key: i, className: row.sota ? 'sota-row' : '' },
                 h('td', { style: { fontWeight: 600 } }, row.field),
                 h('td', { style: { color: 'var(--tx3)' } }, row.n),
-                h('td', { style: { fontWeight: 800, color: C.blue } }, `${row.formflow.toFixed(1)}% ★`),
+                h('td', { style: { fontWeight: 800, color: C.blue } }, `${row.ochcr.toFixed(1)}% ★`),
                 h('td', null, `${row.tesseract.toFixed(1)}%`),
                 h('td', null, `${row.aws.toFixed(1)}%`),
                 h('td', null, `${row.google.toFixed(1)}%`)
@@ -1454,7 +1490,6 @@ function AuditModal({ onClose }) {
 /* ─────────────────────────────────────────────────────────────────────────── */
 function App() {
   const [bootLoading, setBootLoading] = useState(true);
-  const [view, setView] = useState('station'); // Primary default view: Verification Station
   const [auditOpen, setAuditOpen] = useState(false);
 
   // Exact kind-mole-87 loader shown during boot sequence
@@ -1470,10 +1505,8 @@ function App() {
   return h(React.Fragment, null,
     h('div', { className: 'bg-ambient' }),
     h('div', { className: 'bg-grid' }),
-    h(TopNav, { view, setView, onAudit: () => setAuditOpen(true) }),
-    view === 'station'      && h(StationPage),
-    view === 'architecture' && h(ArchitecturePage),
-    view === 'overview'     && h(OverviewPage, { setView }),
+    h(TopNav, { onAudit: () => setAuditOpen(true) }),
+    h(StationPage),
     auditOpen && h(AuditModal, { onClose: () => setAuditOpen(false) })
   );
 }

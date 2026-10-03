@@ -706,3 +706,41 @@ Created a comprehensive, exhaustive architectural blueprint and workflow specifi
   - \src/field_reader/llm_refiner.py\: LocalLLMRefiner powering Qwen 2.5 7B GPU-accelerated semantic post-correction.
   - \src/field_reader/trocr_aligner.py\ & \	rocr_ocr_engine.py\: Vision-Language transformer with aspect-ratio preserving padding.
   - Supporting training scripts, benchmarks, and model artifacts.
+
+
+---
+
+## 21. UI & Typography Overhaul, Dynamic Confidence Tiers & Rebranding to OC&HCR (Oct 2026)
+
+### 21.1 Dynamic Confidence Classification & Adaptive Color Scheme
+- **Mechanism:** Implemented dynamic 3-tier confidence classification based on prediction confidence percentage:
+  - **High (>= 85%):** Green badge / border / text (`#15803d` / `rgba(34, 197, 94, 0.12)`), term: **'High Confidence'** / **'HIGH'**, routing: `Auto-Approved`.
+  - **Medium (70% - 84.9%):** Amber badge / border / text (`#b45309` / `rgba(255, 149, 0, 0.12)`), term: **'Medium Confidence'** / **'MEDIUM'**, routing: `Review Recommended`.
+  - **Low (< 70%):** Crimson badge / border / text (`#b91c1c` / `rgba(255, 59, 48, 0.12)`), term: **'Low Confidence'** / **'LOW'**, routing: `Review Required`.
+- **UI Elements Dynamically Updated:**
+  - **Decision Banner:** Displays dynamic icon (check / warning / alert), title (`[Term] - [Action]`), reason, background, and border matching confidence tier.
+  - **Confidence Right Pill:** Displays dedicated badge with `[HIGH / MEDIUM / LOW]` and `[Pct]%` in matching colors.
+  - **Metadata Grid:** Mean Confidence displays `[Pct]% ([Term])` with color-coded value.
+  - **Routing Status Cell:** Updates to `Auto-Approved`, `Review Recommended`, or `Review Required` with matching color.
+
+### 21.2 Complete Elimination of Qwen & Local LLM References
+- Replaced all customer-facing and telemetry references across [web/index.html](web/index.html), [web/js/app.js](web/js/app.js), [web/css/style.css](web/css/style.css), and [server.py](server.py):
+  - `Local LLM: Qwen 2.5` -> `Neural Refinement Engine: Ready`
+  - `Local Qwen 2.5 7B Verification` -> `Neural Semantic Verification`
+  - `Local Qwen 2.5 7B Suggestion` -> `Neural AI Suggestion`
+  - `AI Refine (Qwen 2.5)` -> `AI Refine`
+  - API parameter `llm_model: "qwen2.5:7b"` -> `"neural_refiner"`
+  - Fallback reasoning: `"Neural refinement offline. Fast Lexicon applied."`
+
+### 21.3 Navigation Streamlining
+- Removed the **'Architecture & Benchmark'** and **'Overview'** tabs.
+- Streamlined `TopNav` to focus entirely on the primary **Live Verification Station** workspace, maximizing vertical screen real-estate for form inspection.
+
+### 21.4 Project Rebranding to OC&HCR
+- Rebranded from **'FormFlow OCR'** to **'OC&HCR'** (Offline Character & Handwriting Recognition).
+- Updated in header logo mark (`OC`), brand name (`OC&HCR`), title tags (`OC&HCR - Verification Station`), meta description, boot loader (`OC&HCR Engine Initializing`), and CSS styles.
+
+### 21.5 Universal Typography Migration to Cascadia Code
+- Loaded `@fontsource/cascadia-code` CDN with sub-font fallback stack:
+  `font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;`
+- Applied universally to `:root`, `body`, `input`, `button`, `select`, `textarea`, metadata cells, badges, and code labels.

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FormFlow OCR – Redesigned UI (macOS Font Stack, No Gradient Text)
+   OC&HCR – Redesigned UI (macOS Font Stack, No Gradient Text)
    ========================================================================== */
 
 /* ---------- Tokens -------------------------------------------------------- */
@@ -44,6 +44,8 @@
   --r-lg: 20px;
   --r-xl: 26px;
   --r-full: 9999px;
+  --font-main: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+  --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
 }
 
 /* ---------- Reset & Base -------------------------------------------------- */
@@ -53,14 +55,18 @@ html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--tx);
-  /* SF Pro stack (macOS), Inter as sub-font, system fallback */
-  font-family: -apple-system, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
-  font-size: 15px;
+  /* Cascadia Code with sub-font fallback stack */
+  font-family: var(--font-main);
+  font-size: 14.5px;
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+input, button, select, textarea {
+  font-family: var(--font-main);
 }
 
 /* ---------- Ambient background ------------------------------------------- */
@@ -569,21 +575,56 @@ body {
 .decision-banner {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; border-radius: var(--r-lg); margin-bottom: 18px;
+  transition: all .2s ease;
 }
-.decision-banner.approved { background: var(--green-lt); border: 1px solid var(--green-bd); color: var(--green-dk); }
-.decision-banner.flagged  { background: var(--amber-lt);  border: 1px solid var(--amber-bd);  color: var(--amber-dk); }
+.decision-banner.approved,
+.decision-banner.conf-high {
+  background: var(--green-lt);
+  border: 1.5px solid var(--green-bd);
+  color: var(--green-dk);
+}
+.decision-banner.conf-medium {
+  background: var(--amber-lt);
+  border: 1.5px solid var(--amber-bd);
+  color: var(--amber-dk);
+}
+.decision-banner.flagged,
+.decision-banner.conf-low {
+  background: var(--red-lt);
+  border: 1.5px solid var(--red-bd);
+  color: var(--red);
+}
 .banner-left { display: flex; align-items: center; gap: 12px; }
 .banner-icon { font-size: 22px; }
 .banner-title { font-size: 14px; font-weight: 800; letter-spacing: -.2px; }
-.banner-reason { font-size: 12px; opacity: .8; margin-top: 1px; }
-.banner-conf { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
-
-
+.banner-reason { font-size: 12px; opacity: .85; margin-top: 2px; }
+.banner-conf-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.banner-conf-term {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: var(--font-main);
+}
+.banner-conf-pct {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-main);
+}
+.banner-conf { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; font-family: var(--font-main); }
 
 /* Transcription */
-.txn-label { font-size: 13px; font-weight: 600; color: var(--tx2); margin-bottom: 8px; display: block; }
+.txn-label { font-size: 13px; font-weight: 600; color: var(--tx2); margin-bottom: 8px; display: block; font-family: var(--font-main); }
 .txn-input {
-  width: 100%; font-family: "SF Mono", "JetBrains Mono", monospace;
+  width: 100%; font-family: var(--font-main);
   font-size: 22px; font-weight: 700; letter-spacing: 3px; color: var(--tx);
   background: var(--surface2); border: 2px solid var(--border);
   border-radius: var(--r-md); padding: 12px 16px; outline: none;
@@ -630,11 +671,11 @@ body {
   font-size: 12px; color: var(--tx3);
   padding-top: 10px; border-top: 1px solid var(--border2);
 }
-.hk { font-family: "SF Mono","JetBrains Mono",monospace; font-size: 11px; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; color: var(--tx2); }
+.hk { font-family: var(--font-main); font-size: 11px; font-weight: 700; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; color: var(--tx2); }
 
 /* Timer */
 .timer-badge {
-  font-family: "SF Mono","JetBrains Mono",monospace;
+  font-family: var(--font-main);
   font-size: 16px; font-weight: 800;
   padding: 4px 12px; border-radius: var(--r-full);
   transition: color .3s;
@@ -690,9 +731,9 @@ body {
 .arch-node.selected rect { animation: nodePulse 2s ease-in-out infinite; }
 @keyframes nodePulse { 50% { stroke-opacity: .5; } }
 
-.arch-node-num  { font-family: "SF Mono","JetBrains Mono",monospace; font-size: 10px; font-weight: 800; }
-.arch-node-title { font-family: -apple-system,"SF Pro Text",sans-serif; font-size: 14px; font-weight: 700; fill: var(--tx); }
-.arch-node-sub   { font-family: -apple-system,"SF Pro Text",sans-serif; font-size: 10px; font-weight: 500; fill: var(--tx3); }
+.arch-node-num  { font-family: var(--font-main); font-size: 10px; font-weight: 800; }
+.arch-node-title { font-family: var(--font-main); font-size: 14px; font-weight: 700; fill: var(--tx); }
+.arch-node-sub   { font-family: var(--font-main); font-size: 10px; font-weight: 500; fill: var(--tx3); }
 
 /* Packet flowing along the selected edge */
 .flow-packet {
@@ -701,7 +742,7 @@ body {
 }
 
 /* Gate labels */
-.gate-label { font-family: "SF Mono","JetBrains Mono",monospace; font-size: 10px; font-weight: 700; }
+.gate-label { font-family: var(--font-main); font-size: 10px; font-weight: 700; }
 
 /* Stage inspector (below diagram) */
 .inspector-card {
@@ -722,7 +763,7 @@ body {
 }
 .file-chip {
   display: inline-flex; align-items: center; gap: 5px;
-  font-family: "SF Mono","JetBrains Mono",monospace; font-size: 12px; font-weight: 600;
+  font-family: var(--font-main); font-size: 12px; font-weight: 600;
   color: var(--blue); background: var(--blue-lt); border: 1px solid var(--blue-bd);
   padding: 3px 10px; border-radius: var(--r-md); margin-bottom: 16px;
 }
@@ -745,22 +786,22 @@ body {
   min-height: 180px;
 }
 .sandbox-title {
-  font-family: "SF Mono","JetBrains Mono",monospace;
+  font-family: var(--font-main);
   font-size: 11px; font-weight: 700; color: var(--tx3);
   text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px;
 }
 
 /* Probability bars */
 .prob-row { display: grid; grid-template-columns: 28px 1fr 48px; align-items: center; gap: 10px; margin-bottom: 10px; }
-.prob-char { font-family: "SF Mono","JetBrains Mono",monospace; font-size: 18px; font-weight: 800; color: var(--tx); }
+.prob-char { font-family: var(--font-main); font-size: 18px; font-weight: 800; color: var(--tx); }
 .prob-bar-bg { height: 11px; border-radius: 6px; background: rgba(0,0,0,.07); overflow: hidden; }
 .prob-bar-fill { height: 100%; border-radius: 6px; background: var(--blue); transition: width .8s cubic-bezier(.16,1,.3,1); }
-.prob-pct { font-family: "SF Mono","JetBrains Mono",monospace; font-size: 12px; font-weight: 700; color: var(--tx3); text-align: right; }
+.prob-pct { font-family: var(--font-main); font-size: 12px; font-weight: 700; color: var(--tx3); text-align: right; }
 
 /* Threshold pills */
 .thresh-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .thresh-pill {
-  font-family: "SF Mono","JetBrains Mono",monospace; font-size: 12.5px; font-weight: 700;
+  font-family: var(--font-main); font-size: 12.5px; font-weight: 700;
   padding: 5px 11px; border-radius: var(--r-md);
   background: #fff; color: var(--tx3); border: 1px solid var(--border);
   cursor: pointer; transition: all .18s ease;
@@ -773,14 +814,14 @@ body {
 .dial-svg { width: 110px; height: 110px; display: block; flex-shrink: 0; }
 .dial-track { fill: none; stroke: rgba(0,0,0,.08); stroke-width: 10; }
 .dial-arc { fill: none; stroke: var(--green); stroke-width: 10; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 55px 55px; transition: stroke-dasharray .6s cubic-bezier(.16,1,.3,1); }
-.dial-num-text { font-family: -apple-system,"SF Pro Display",sans-serif; font-size: 16px; font-weight: 800; fill: var(--tx); }
+.dial-num-text { font-family: var(--font-main); font-size: 16px; font-weight: 800; fill: var(--tx); }
 .dial-stat { }
 .dial-stat .big-num { font-size: 36px; font-weight: 800; color: var(--green); font-variant-numeric: tabular-nums; }
 .dial-stat p { font-size: 13px; color: var(--tx3); max-width: 22ch; }
 
 /* Century clamp diff */
 .diff-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.diff-tok { font-family: "SF Mono","JetBrains Mono",monospace; font-size: 19px; font-weight: 800; padding: 7px 13px; border-radius: var(--r-md); }
+.diff-tok { font-family: var(--font-main); font-size: 19px; font-weight: 800; padding: 7px 13px; border-radius: var(--r-md); }
 .diff-tok.bad  { background: var(--amber-lt); color: var(--amber-dk); border: 1px solid var(--amber-bd); text-decoration: line-through; }
 .diff-tok.good { background: var(--green-lt);  color: var(--green-dk);  border: 1px solid var(--green-bd);  animation: repairPop 1.8s ease infinite; }
 @keyframes repairPop { 50% { box-shadow: 0 0 0 6px var(--green-lt); } }
@@ -800,7 +841,7 @@ body {
 .tile {
   width: 42px; height: 46px; display: grid; place-items: center;
   border: 1.8px solid var(--blue); border-radius: var(--r-sm); background: #fff;
-  font-family: "SF Mono","JetBrains Mono",monospace; font-size: 19px; font-weight: 800;
+  font-family: var(--font-main); font-size: 19px; font-weight: 800;
   animation: tileIn .35s both;
 }
 .tile.hw { font-family: "Caveat",cursive; font-size: 28px; font-weight: 600; border-style: dashed; border-color: rgba(0,0,0,.25); }
@@ -967,7 +1008,7 @@ table.bench-table tr.sota-row td { font-weight: 700; color: var(--blue); }
 /* Speed pills */
 .speed-pills { display: flex; gap: 4px; }
 .speed-pill {
-  font-family: "SF Mono","JetBrains Mono",monospace; font-size: 12px; font-weight: 700;
+  font-family: var(--font-main); font-size: 12px; font-weight: 700;
   padding: 5px 10px; border-radius: var(--r-md);
   background: #fff; color: var(--tx3); border: 1px solid var(--border);
   cursor: pointer; transition: all .15s;

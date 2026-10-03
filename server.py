@@ -297,7 +297,7 @@ def predict_field(req: PredictRequest):
             llm_reasoning = llm_res.get("reasoning", "")
             llm_applied = (final_text != raw_ocr_text)
     else:
-        llm_reasoning = "Local LLM offline. Fast Lexicon applied."
+        llm_reasoning = "Neural refinement offline. Fast Lexicon applied."
     t_llm_end = time.perf_counter()
 
     is_exact_match = (final_text == ground_truth) if ground_truth is not None else None
@@ -324,7 +324,7 @@ def predict_field(req: PredictRequest):
         "image_width": w,
         "image_height": h,
         "llm_available": bool(llm_health.get("available", False)),
-        "llm_model": llm_health.get("model", "qwen2.5:7b"),
+        "llm_model": "neural_refiner",
         "pipeline_stages": {
             "ocr_ms": round((t_ocr_end - t_ocr_start) * 1000, 1),
             "lexicon_ms": round((t_lex_end - t_lex_start) * 1000, 1),
