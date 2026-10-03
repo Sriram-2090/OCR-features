@@ -718,6 +718,37 @@ def download_crops_csv():
     raise HTTPException(status_code=404, detail="Cropped fields metadata CSV not found")
 
 
+@app.get("/api/report/pdf")
+def download_official_benchmark_pdf():
+    """Serves the official publication-quality evaluation benchmark PDF report."""
+    pdf_path = os.path.join(REPO_ROOT, "reports", "OC_HCR_Official_Benchmark_Report.pdf")
+    if not os.path.exists(pdf_path):
+        import generate_pdf_report
+        generate_pdf_report.compile_pdf()
+
+    if os.path.exists(pdf_path):
+        return FileResponse(
+            pdf_path,
+            media_type="application/pdf",
+            filename="OC_HCR_Official_Benchmark_Report.pdf"
+        )
+    raise HTTPException(status_code=404, detail="Benchmark PDF report not found")
+
+
+@app.get("/api/report/html")
+def view_official_benchmark_html():
+    """Serves the official publication-quality evaluation benchmark HTML report."""
+    html_path = os.path.join(REPO_ROOT, "reports", "OC_HCR_Official_Benchmark_Report.html")
+    if not os.path.exists(html_path):
+        import generate_pdf_report
+        generate_pdf_report.compile_pdf()
+
+    if os.path.exists(html_path):
+        return FileResponse(html_path, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Benchmark HTML report not found")
+
+
+
 
 # Mount Static Web Files
 WEB_DIR = os.path.join(REPO_ROOT, "web")

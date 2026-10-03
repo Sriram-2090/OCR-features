@@ -1217,5 +1217,35 @@ The pipeline was executed across 5 realistic filled handwritten forms (3 clearly
    - **Right Panel:** Displays isolated field cards showing the exact cropped image thumbnail, ground truth comparison, dynamic confidence pill, individual cell glyph ribbon, and 1-click operator confirmation button.
    - **1-Click Dataset Export:** The `⬇ Crops CSV` button enables instant downloading of the full `extracted_fields_metadata.csv` deliverable.
 
+---
+
+## 29. Official Publication-Quality Benchmark PDF & HTML Report (`reports/`)
+
+### 29.1 Artifact Details & Compilation Protocol
+- **PDF Artifact Path:** [`reports/OC_HCR_Official_Benchmark_Report.pdf`](file:///c:/Users/SRIRAM/Documents/GitHub/OCR%20features%20for%20Hackathon/reports/OC_HCR_Official_Benchmark_Report.pdf) (490 KB, multi-page vector-rendered PDF).
+- **Interactive HTML Report Path:** [`reports/OC_HCR_Official_Benchmark_Report.html`](file:///c:/Users/SRIRAM/Documents/GitHub/OCR%20features%20for%20Hackathon/reports/OC_HCR_Official_Benchmark_Report.html).
+- **Automated Generator Script:** [`generate_pdf_report.py`](file:///c:/Users/SRIRAM/Documents/GitHub/OCR%20features%20for%20Hackathon/generate_pdf_report.py).
+- **Live REST Endpoints:**
+  - `GET /api/report/pdf`: Direct PDF download attachment.
+  - `GET /api/report/html`: Direct browser viewing of the styled report.
+- **UI Integration:** 1-click `📄 Report (PDF)` button in the top navigation bar and in the Full Form Extractor hero action bar.
+
+### 29.2 Report Content Structure
+The official report compiles all verified Track B empirical evaluations:
+1. **Executive Summary & Primary Deliverables:** Core metric achievements (Review Rate slashed to **3.30%**, Char Accuracy **96.92%**, Field Exact Match **93.33%**, Comb-Box Extraction **100.0%**).
+2. **Mathematical Formulations:** Explicit formulas for CER, Character Accuracy, Complete-Field Accuracy (0/1 equality), Field Confidence Metric $C(F) = \min_j P(c_j)$, and Human Review Routing Rate.
+3. **Core Leaderboard:** 3-tier benchmark matrix comparing Raw CNN Baseline, FSM Grammar Decoder, and SOTA Tri-Engine.
+4. **Data Used:** Full breakdown of the 4 benchmark datasets:
+   - 150-field standardized test suite (`data/form_fields/metadata.csv`)
+   - 81 legible vs 69 difficult stratified split (`models/legibility_split_report.json`)
+   - Full-page template suite with 30 cropped fields (`data/extracted_crops/`)
+   - 369-sample BHK kinematic motor dataset (`models/dysgraphia_features_cache.csv`)
+5. **Models Used:** Architectures, parameters, and roles of `FieldCharacterCNN` (39 classes, 2.7 MB), `FormFieldGrammarDecoder` (Viterbi FSM), `TrOCR-Base-Handwritten` (ViT+RoBERTa), and `DysgraphiaEnsemble` (Random Forest + XGBoost + SVM, 2.1 MB).
+6. **Legibility-Stratified Performance:** Granular evaluation on Group A (95.74% char acc, 4.26% CER) vs Group B (88.51% char acc, 11.49% CER), plus sub-categories (clean comb-box, border noise, isolated, touching cursive).
+7. **Deliverable 1 Results:** 100% exact match across all 25 structured comb-box fields across 5 filled forms.
+8. **Economic Cost Optimization:** $625:1$ error-to-review cost asymmetry analysis and threshold justification ($\theta^* \ge 0.85$).
+9. **Industry Comparison:** OC&HCR (95.4%) vs Google Document AI (91.7%) vs AWS Textract (88.9%) vs Tesseract 5 (74.6%).
+
+
 
 

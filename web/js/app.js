@@ -162,6 +162,13 @@ function TopNav({ currentView, setView, onAudit }) {
     ),
     h('div', { className: 'nav-right' },
       h('a', {
+        href: '/api/report/pdf',
+        download: 'OC_HCR_Official_Benchmark_Report.pdf',
+        target: '_blank',
+        className: 'btn-csv-download',
+        style: { textDecoration: 'none', padding: '6px 12px', fontSize: 12, background: 'var(--violet-lt)', color: 'var(--violet)', borderColor: 'rgba(88,86,214,0.3)' }
+      }, '📄 Report (PDF)'),
+      h('a', {
         href: '/api/form/crops/csv',
         download: 'extracted_fields_metadata.csv',
         className: 'btn-csv-download',
@@ -1686,10 +1693,17 @@ function FullFormScannerPage() {
       ),
       h('div', { className: 'form-hero-actions' },
         h('a', {
+          href: '/api/report/pdf',
+          download: 'OC_HCR_Official_Benchmark_Report.pdf',
+          target: '_blank',
+          className: 'btn-csv-download',
+          style: { background: 'var(--violet-lt)', color: 'var(--violet)', borderColor: 'rgba(88,86,214,0.3)' }
+        }, '📄 Benchmark PDF Report'),
+        h('a', {
           href: '/api/form/crops/csv',
           download: 'extracted_fields_metadata.csv',
           className: 'btn-csv-download'
-        }, '⬇ Download Cropped Fields Dataset (CSV)'),
+        }, '⬇ Download Cropped Fields (CSV)'),
         h('button', {
           className: 'btn-outline',
           style: { padding: '8px 14px', fontSize: 13 },
