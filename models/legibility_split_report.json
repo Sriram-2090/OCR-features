@@ -1,0 +1,338 @@
+{
+  "metadata": {
+    "title": "Legibility-Stratified Accuracy & Economic Cost-Optimal Threshold Report",
+    "timestamp": "2026-10-03T12:53:07Z",
+    "total_samples": 150,
+    "cost_parameters": {
+      "c_review": 0.04,
+      "c_error": 25.0,
+      "cost_ratio": 625.0
+    },
+    "optimal_threshold": 0.98,
+    "min_cost_per_field": 1.0157
+  },
+  "group_a_clearly_legible": {
+    "n": 81,
+    "exact_cnt": 72,
+    "exact_pct": 88.88888888888889,
+    "char_acc_pct": 95.74105621805792,
+    "cer_pct": 4.2589437819420795,
+    "mean_conf": 97.38287598148717,
+    "min_conf": 88.7327914988553
+  },
+  "group_b_genuinely_difficult": {
+    "n": 69,
+    "exact_cnt": 51,
+    "exact_pct": 73.91304347826086,
+    "char_acc_pct": 88.50771869639794,
+    "cer_pct": 11.492281303602056,
+    "mean_conf": 98.1071129484796,
+    "min_conf": 90.16130385191545
+  },
+  "sub_categories": [
+    {
+      "category": "Comb-Box Border Noise",
+      "n": 32,
+      "exact_cnt": 31,
+      "exact_pct": 96.875,
+      "char_acc_pct": 98.08429118773945,
+      "cer_pct": 1.9157088122605472,
+      "mean_conf": 98.72848456858524,
+      "min_conf": 93.34722347557545
+    },
+    {
+      "category": "Comb-Box Clean",
+      "n": 41,
+      "exact_cnt": 40,
+      "exact_pct": 97.5609756097561,
+      "char_acc_pct": 98.64406779661017,
+      "cer_pct": 1.355932203389827,
+      "mean_conf": 98.50293080877344,
+      "min_conf": 92.38533166850486
+    },
+    {
+      "category": "Freeform Isolated",
+      "n": 40,
+      "exact_cnt": 32,
+      "exact_pct": 80.0,
+      "char_acc_pct": 92.8082191780822,
+      "cer_pct": 7.191780821917803,
+      "mean_conf": 96.23481978351872,
+      "min_conf": 84.98893782496452
+    },
+    {
+      "category": "Freeform Touching Cursive",
+      "n": 37,
+      "exact_cnt": 20,
+      "exact_pct": 54.054054054054056,
+      "char_acc_pct": 80.74534161490683,
+      "cer_pct": 19.254658385093165,
+      "mean_conf": 97.56971046622606,
+      "min_conf": 87.40591390712841
+    }
+  ],
+  "cost_curve": [
+    {
+      "threshold": 0.6,
+      "review_rate_pct": 11.33,
+      "auto_accept_pct": 88.67,
+      "silent_error_count": 19,
+      "silent_error_pct": 12.67,
+      "cost_per_field": 3.1712,
+      "total_cost": 475.68,
+      "cost_review": 0.68,
+      "cost_error": 475.0
+    },
+    {
+      "threshold": 0.62,
+      "review_rate_pct": 13.33,
+      "auto_accept_pct": 86.67,
+      "silent_error_count": 19,
+      "silent_error_pct": 12.67,
+      "cost_per_field": 3.172,
+      "total_cost": 475.8,
+      "cost_review": 0.8,
+      "cost_error": 475.0
+    },
+    {
+      "threshold": 0.64,
+      "review_rate_pct": 13.33,
+      "auto_accept_pct": 86.67,
+      "silent_error_count": 19,
+      "silent_error_pct": 12.67,
+      "cost_per_field": 3.172,
+      "total_cost": 475.8,
+      "cost_review": 0.8,
+      "cost_error": 475.0
+    },
+    {
+      "threshold": 0.66,
+      "review_rate_pct": 16.0,
+      "auto_accept_pct": 84.0,
+      "silent_error_count": 19,
+      "silent_error_pct": 12.67,
+      "cost_per_field": 3.1731,
+      "total_cost": 475.96,
+      "cost_review": 0.96,
+      "cost_error": 475.0
+    },
+    {
+      "threshold": 0.68,
+      "review_rate_pct": 18.0,
+      "auto_accept_pct": 82.0,
+      "silent_error_count": 18,
+      "silent_error_pct": 12.0,
+      "cost_per_field": 3.0072,
+      "total_cost": 451.08,
+      "cost_review": 1.08,
+      "cost_error": 450.0
+    },
+    {
+      "threshold": 0.7,
+      "review_rate_pct": 19.33,
+      "auto_accept_pct": 80.67,
+      "silent_error_count": 18,
+      "silent_error_pct": 12.0,
+      "cost_per_field": 3.0077,
+      "total_cost": 451.16,
+      "cost_review": 1.16,
+      "cost_error": 450.0
+    },
+    {
+      "threshold": 0.72,
+      "review_rate_pct": 19.33,
+      "auto_accept_pct": 80.67,
+      "silent_error_count": 18,
+      "silent_error_pct": 12.0,
+      "cost_per_field": 3.0077,
+      "total_cost": 451.16,
+      "cost_review": 1.16,
+      "cost_error": 450.0
+    },
+    {
+      "threshold": 0.74,
+      "review_rate_pct": 20.0,
+      "auto_accept_pct": 80.0,
+      "silent_error_count": 18,
+      "silent_error_pct": 12.0,
+      "cost_per_field": 3.008,
+      "total_cost": 451.2,
+      "cost_review": 1.2,
+      "cost_error": 450.0
+    },
+    {
+      "threshold": 0.76,
+      "review_rate_pct": 20.0,
+      "auto_accept_pct": 80.0,
+      "silent_error_count": 18,
+      "silent_error_pct": 12.0,
+      "cost_per_field": 3.008,
+      "total_cost": 451.2,
+      "cost_review": 1.2,
+      "cost_error": 450.0
+    },
+    {
+      "threshold": 0.78,
+      "review_rate_pct": 20.0,
+      "auto_accept_pct": 80.0,
+      "silent_error_count": 18,
+      "silent_error_pct": 12.0,
+      "cost_per_field": 3.008,
+      "total_cost": 451.2,
+      "cost_review": 1.2,
+      "cost_error": 450.0
+    },
+    {
+      "threshold": 0.8,
+      "review_rate_pct": 22.0,
+      "auto_accept_pct": 78.0,
+      "silent_error_count": 17,
+      "silent_error_pct": 11.33,
+      "cost_per_field": 2.8421,
+      "total_cost": 426.32,
+      "cost_review": 1.32,
+      "cost_error": 425.0
+    },
+    {
+      "threshold": 0.82,
+      "review_rate_pct": 22.0,
+      "auto_accept_pct": 78.0,
+      "silent_error_count": 17,
+      "silent_error_pct": 11.33,
+      "cost_per_field": 2.8421,
+      "total_cost": 426.32,
+      "cost_review": 1.32,
+      "cost_error": 425.0
+    },
+    {
+      "threshold": 0.84,
+      "review_rate_pct": 22.67,
+      "auto_accept_pct": 77.33,
+      "silent_error_count": 16,
+      "silent_error_pct": 10.67,
+      "cost_per_field": 2.6757,
+      "total_cost": 401.36,
+      "cost_review": 1.36,
+      "cost_error": 400.0
+    },
+    {
+      "threshold": 0.86,
+      "review_rate_pct": 22.67,
+      "auto_accept_pct": 77.33,
+      "silent_error_count": 16,
+      "silent_error_pct": 10.67,
+      "cost_per_field": 2.6757,
+      "total_cost": 401.36,
+      "cost_review": 1.36,
+      "cost_error": 400.0
+    },
+    {
+      "threshold": 0.88,
+      "review_rate_pct": 23.33,
+      "auto_accept_pct": 76.67,
+      "silent_error_count": 15,
+      "silent_error_pct": 10.0,
+      "cost_per_field": 2.5093,
+      "total_cost": 376.4,
+      "cost_review": 1.4,
+      "cost_error": 375.0
+    },
+    {
+      "threshold": 0.9,
+      "review_rate_pct": 24.67,
+      "auto_accept_pct": 75.33,
+      "silent_error_count": 13,
+      "silent_error_pct": 8.67,
+      "cost_per_field": 2.1765,
+      "total_cost": 326.48,
+      "cost_review": 1.48,
+      "cost_error": 325.0
+    },
+    {
+      "threshold": 0.92,
+      "review_rate_pct": 27.33,
+      "auto_accept_pct": 72.67,
+      "silent_error_count": 12,
+      "silent_error_pct": 8.0,
+      "cost_per_field": 2.0109,
+      "total_cost": 301.64,
+      "cost_review": 1.64,
+      "cost_error": 300.0
+    },
+    {
+      "threshold": 0.94,
+      "review_rate_pct": 31.33,
+      "auto_accept_pct": 68.67,
+      "silent_error_count": 10,
+      "silent_error_pct": 6.67,
+      "cost_per_field": 1.6792,
+      "total_cost": 251.88,
+      "cost_review": 1.88,
+      "cost_error": 250.0
+    },
+    {
+      "threshold": 0.96,
+      "review_rate_pct": 34.0,
+      "auto_accept_pct": 66.0,
+      "silent_error_count": 9,
+      "silent_error_pct": 6.0,
+      "cost_per_field": 1.5136,
+      "total_cost": 227.04,
+      "cost_review": 2.04,
+      "cost_error": 225.0
+    },
+    {
+      "threshold": 0.98,
+      "review_rate_pct": 39.33,
+      "auto_accept_pct": 60.67,
+      "silent_error_count": 6,
+      "silent_error_pct": 4.0,
+      "cost_per_field": 1.0157,
+      "total_cost": 152.36,
+      "cost_review": 2.36,
+      "cost_error": 150.0
+    }
+  ],
+  "sensitivity_analysis": [
+    {
+      "domain": "Low-Risk Archival",
+      "c_err": 5.0,
+      "c_rev": 0.04,
+      "ratio": 125.0,
+      "optimal_theta": 0.98,
+      "review_rate": 39.33333333333333
+    },
+    {
+      "domain": "Standard Logistics/Postal",
+      "c_err": 15.0,
+      "c_rev": 0.04,
+      "ratio": 375.0,
+      "optimal_theta": 0.98,
+      "review_rate": 39.33333333333333
+    },
+    {
+      "domain": "Govt/Tax Administration",
+      "c_err": 25.0,
+      "c_rev": 0.04,
+      "ratio": 625.0,
+      "optimal_theta": 0.98,
+      "review_rate": 39.33333333333333
+    },
+    {
+      "domain": "High-Assurance Banking/KYC",
+      "c_err": 50.0,
+      "c_rev": 0.04,
+      "ratio": 1250.0,
+      "optimal_theta": 0.98,
+      "review_rate": 39.33333333333333
+    },
+    {
+      "domain": "Critical Legal/Defense",
+      "c_err": 100.0,
+      "c_rev": 0.04,
+      "ratio": 2500.0,
+      "optimal_theta": 0.98,
+      "review_rate": 39.33333333333333
+    }
+  ]
+}

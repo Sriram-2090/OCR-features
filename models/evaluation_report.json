@@ -3,82 +3,78 @@
     {
       "mode": "raw_cnn",
       "name": "Baseline: Raw Character CNN",
-      "char_accuracy": 93.42,
-      "complete_field_accuracy": 76.0,
-      "exact_matches": 114,
+      "char_accuracy": 89.57,
+      "complete_field_accuracy": 64.67,
+      "exact_matches": 97,
       "total_fields": 150
     },
     {
       "mode": "grammar_fsm",
       "name": "Tier 1: CNN + Grammar/FSM Decoder",
-      "char_accuracy": 96.84,
-      "complete_field_accuracy": 93.33,
-      "exact_matches": 140,
+      "char_accuracy": 93.1,
+      "complete_field_accuracy": 82.0,
+      "exact_matches": 123,
       "total_fields": 150
     },
     {
       "mode": "tri_engine",
       "name": "Tier 2: SOTA Tri-Engine Pipeline",
-      "char_accuracy": 96.92,
-      "complete_field_accuracy": 93.33,
-      "exact_matches": 140,
+      "char_accuracy": 93.1,
+      "complete_field_accuracy": 82.0,
+      "exact_matches": 123,
       "total_fields": 150
     }
   ],
   "tri_engine_triggers": [
     {
       "threshold": 0.7,
-      "auto_accept_rate": 98.7,
-      "auto_accepted_accuracy": 93.9,
-      "human_review_rate": 1.3
+      "auto_accept_rate": 94.0,
+      "auto_accepted_accuracy": 86.5,
+      "human_review_rate": 6.0
     },
     {
       "threshold": 0.75,
-      "auto_accept_rate": 96.7,
-      "auto_accepted_accuracy": 94.5,
-      "human_review_rate": 3.3
+      "auto_accept_rate": 92.0,
+      "auto_accepted_accuracy": 87.0,
+      "human_review_rate": 8.0
     },
     {
       "threshold": 0.8,
-      "auto_accept_rate": 96.7,
-      "auto_accepted_accuracy": 94.5,
-      "human_review_rate": 3.3
+      "auto_accept_rate": 92.0,
+      "auto_accepted_accuracy": 87.0,
+      "human_review_rate": 8.0
     },
     {
       "threshold": 0.85,
-      "auto_accept_rate": 96.7,
-      "auto_accepted_accuracy": 94.5,
-      "human_review_rate": 3.3
+      "auto_accept_rate": 92.0,
+      "auto_accepted_accuracy": 87.0,
+      "human_review_rate": 8.0
     },
     {
       "threshold": 0.9,
-      "auto_accept_rate": 96.7,
-      "auto_accepted_accuracy": 94.5,
-      "human_review_rate": 3.3
+      "auto_accept_rate": 92.0,
+      "auto_accepted_accuracy": 87.0,
+      "human_review_rate": 8.0
     },
     {
       "threshold": 0.95,
-      "auto_accept_rate": 96.7,
-      "auto_accepted_accuracy": 94.5,
-      "human_review_rate": 3.3
+      "auto_accept_rate": 92.0,
+      "auto_accepted_accuracy": 87.0,
+      "human_review_rate": 8.0
     }
   ],
   "top_confusions": [
+    [
+      "'0' -> '.'",
+      12
+    ],
     [
       "'2' -> '9'",
       11
     ],
     [
-      "'-' -> '.'",
-      8
-    ],
-    [
       "'1' -> '9'",
-      5
-    ],
-    [
-      "'8' -> '9'",
-      4
+      6
     ],
     [
       "'1' -> '7'",
@@ -86,6 +82,10 @@
     ],
     [
       "'1' -> '4'",
+      4
+    ],
+    [
+      "'-' -> '.'",
       4
     ],
     [
@@ -97,12 +97,12 @@
       3
     ],
     [
-      "'/' -> '4'",
+      "'8' -> '9'",
       3
     ],
     [
-      "'P' -> 'D'",
-      2
+      "'2' -> '-'",
+      3
     ]
   ]
 }
